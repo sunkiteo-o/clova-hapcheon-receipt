@@ -124,7 +124,7 @@ function ReviewForm() {
             value={날짜}
             onChange={set날짜}
             warn={warnDate}
-            placeholder="YYYY-MM-DD"
+            type="date"
             required
           />
           <Field
@@ -183,6 +183,7 @@ function Field({
   warn,
   placeholder,
   inputMode,
+  type,
   required,
 }: {
   label: string;
@@ -191,6 +192,7 @@ function Field({
   warn: boolean;
   placeholder?: string;
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  type?: string;
   required?: boolean;
 }) {
   return (
@@ -210,7 +212,7 @@ function Field({
         {warn && <span style={{ fontSize: 11 }}>⚠ 확인 필요</span>}
       </label>
       <input
-        type="text"
+        type={type ?? "text"}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
