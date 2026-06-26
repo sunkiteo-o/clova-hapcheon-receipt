@@ -196,7 +196,7 @@ function Field({
   required?: boolean;
 }) {
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div style={{ marginBottom: 16, width: "100%", overflow: "hidden" }}>
       <label
         style={{
           display: "flex",
@@ -219,7 +219,9 @@ function Field({
         inputMode={inputMode}
         required={required}
         style={{
+          display: "block",
           width: "100%",
+          maxWidth: "100%",
           minWidth: 0,
           padding: "10px 12px",
           border: `1.5px solid ${warn ? "var(--warn)" : "var(--border-200)"}`,
@@ -228,6 +230,7 @@ function Field({
           color: "var(--ink)",
           background: warn ? "#fffbf0" : "var(--bg)",
           outline: "none",
+          boxSizing: "border-box",
         }}
       />
     </div>
