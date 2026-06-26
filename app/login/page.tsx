@@ -70,7 +70,7 @@ export default function LoginPage() {
               padding: "10px 14px",
               border: "1px solid var(--border-200)",
               borderRadius: 8,
-              fontSize: 15,
+              fontSize: 16,
               color: "var(--ink)",
               outline: "none",
               marginBottom: 12,

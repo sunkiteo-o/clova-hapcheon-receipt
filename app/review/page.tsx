@@ -223,7 +223,7 @@ function Field({
           padding: "10px 12px",
           border: `1.5px solid ${warn ? "var(--warn)" : "var(--border-200)"}`,
           borderRadius: 8,
-          fontSize: 15,
+          fontSize: 16,
           color: "var(--ink)",
           background: warn ? "#fffbf0" : "var(--bg)",
           outline: "none",
