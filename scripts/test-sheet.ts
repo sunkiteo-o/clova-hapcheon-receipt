@@ -9,7 +9,7 @@ import { appendRow } from "../lib/sheets";
 
 async function main() {
   console.log("→ 취사 탭에 더미 행 추가 시도...");
-  await appendRow("취사", {
+  await appendRow("취사팀", {
     날짜: "2099-01-01",
     상호: "TEST-삭제요망",
     항목: "연동 검증 더미",
