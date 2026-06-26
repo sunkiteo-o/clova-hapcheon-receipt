@@ -35,6 +35,16 @@ function ReviewForm() {
       setStatus("error");
       return;
     }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(날짜)) {
+      setErrMsg("날짜 형식이 올바르지 않습니다. YYYY-MM-DD로 입력해 주세요. (예: 2026-06-27)");
+      setStatus("error");
+      return;
+    }
+    if (!/^\d+$/.test(금액.trim())) {
+      setErrMsg("금액은 숫자만 입력해 주세요. (예: 15000)");
+      setStatus("error");
+      return;
+    }
     setStatus("loading");
     setErrMsg("");
     const res = await fetch("/api/save", {

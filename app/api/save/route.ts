@@ -11,6 +11,12 @@ export async function POST(req: NextRequest) {
   if (!날짜 || !상호 || !항목 || !금액) {
     return NextResponse.json({ error: "모든 필드를 입력해 주세요." }, { status: 400 });
   }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(날짜)) {
+    return NextResponse.json({ error: "날짜 형식이 올바르지 않습니다. YYYY-MM-DD로 입력해 주세요." }, { status: 400 });
+  }
+  if (!/^\d+$/.test(String(금액).trim())) {
+    return NextResponse.json({ error: "금액은 숫자만 입력해 주세요." }, { status: 400 });
+  }
   try {
     await appendRow(team, { 날짜, 상호, 항목, 금액 });
     return NextResponse.json({ ok: true });
