@@ -220,6 +220,7 @@ function Field({
         required={required}
         style={{
           width: "100%",
+          minWidth: 0,
           padding: "10px 12px",
           border: `1.5px solid ${warn ? "var(--warn)" : "var(--border-200)"}`,
           borderRadius: 8,
