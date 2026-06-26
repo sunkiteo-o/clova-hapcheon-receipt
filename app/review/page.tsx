@@ -196,7 +196,7 @@ function Field({
   required?: boolean;
 }) {
   return (
-    <div style={{ marginBottom: 16, width: "100%", overflow: "hidden" }}>
+    <div style={{ marginBottom: 16, width: "100%" }}>
       <label
         style={{
           display: "flex",
@@ -253,6 +253,7 @@ const cardStyle: React.CSSProperties = {
   padding: "28px 24px",
   width: "100%",
   maxWidth: 480,
+  overflow: "hidden",
   boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
 };
 
