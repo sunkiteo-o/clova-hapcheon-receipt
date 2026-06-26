@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 합천 영수증 입력 도구
 
-## Getting Started
+취사 영수증을 촬영하면 CLOVA OCR로 날짜·상호·금액을 자동 추출하여 Google Sheets에 저장하는 모바일 웹 앱입니다.
 
-First, run the development server:
+## 흐름
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+1. 팀 선택 → 영수증 사진 촬영 → 분석
+2. OCR 결과 확인 및 수동 수정
+3. 항목 입력 후 저장 → 시트에 자동 기록
+
+## 환경변수 설정
+
+`.env.local` 파일을 프로젝트 루트에 생성합니다.
+
+```env
+# Naver CLOVA OCR
+CLOVA_OCR_URL=https://...apigw.ntruss.com/custom/v1/...
+CLOVA_OCR_SECRET=
+
+# Google Sheets
+GOOGLE_SERVICE_ACCOUNT_EMAIL=...@....iam.gserviceaccount.com
+GOOGLE_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n..."
+SHEET_ID=
+
+# 시트 탭 이름 (기본값: 취사, 통합)
+TAB_CHWISA=취사
+TAB_COMMON=통합
+
+# 로그인 비밀번호 (선택)
+AUTH_PASSWORD=
+
+# 시트 바로가기 URL (선택)
+NEXT_PUBLIC_SHEET_URL=https://docs.google.com/spreadsheets/d/...
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 실행
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm install
+pnpm dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Google Sheets 시트 구조
 
-## Learn More
+탭별로 아래 헤더가 필요합니다.
 
-To learn more about Next.js, take a look at the following resources:
+| 날짜 | 팀 | 상호 | 항목 | 금액 | 상태 | 입력시간 |
+|------|-----|------|------|------|------|----------|
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- 취사팀 → `취사` 탭 (또는 `TAB_CHWISA`)
+- 나머지 팀 → `통합` 탭 (또는 `TAB_COMMON`)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 시트 연결 테스트
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+pnpm test:sheet
+```
