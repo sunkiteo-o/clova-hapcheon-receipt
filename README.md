@@ -8,30 +8,6 @@
 2. OCR 결과 확인 및 수동 수정
 3. 항목 입력 후 저장 → 시트에 자동 기록
 
-## 환경변수 설정
-
-`.env.local` 파일을 프로젝트 루트에 생성합니다.
-
-```env
-# Naver CLOVA OCR
-CLOVA_OCR_URL=https://...apigw.ntruss.com/custom/v1/...
-CLOVA_OCR_SECRET=
-
-# Google Sheets
-GOOGLE_SERVICE_ACCOUNT_EMAIL=...@....iam.gserviceaccount.com
-GOOGLE_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n..."
-SHEET_ID=
-
-# 시트 탭 이름 (기본값: 취사, 통합)
-TAB_CHWISA=취사
-TAB_COMMON=통합
-
-# 로그인 비밀번호 (선택)
-AUTH_PASSWORD=
-
-# 시트 바로가기 URL (선택)
-NEXT_PUBLIC_SHEET_URL=https://docs.google.com/spreadsheets/d/...
-```
 
 ## 실행
 
