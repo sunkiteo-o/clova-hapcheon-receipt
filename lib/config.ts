@@ -1,16 +1,37 @@
-export const TEAMS = ["취사팀", "찬양팀", "교육팀", "진행팀", "기타"] as const;
-export type Team = (typeof TEAMS)[number];
+export const TAB_TYPES = ["일반", "취사"] as const;
+export type TabType = (typeof TAB_TYPES)[number];
 
-export const HEADERS = ["날짜", "팀", "상호", "항목", "금액", "상태", "입력시간"] as const;
+export const HEADERS = ["No.", "지출일자", "항목", "금액", "비고", "상태"] as const;
 
 export const DEFAULT_STATUS = "대기";
 
-export function tabNameForTeam(team: Team): string {
-  return team === "취사팀"
-    ? process.env.TAB_CHWISA ?? "취사"
-    : process.env.TAB_COMMON ?? "통합";
-}
+export const JANGBU_TABS: Record<TabType, string> = {
+  "일반": "2025 하동 하봉(일반)_완",
+  "취사": "2025 하동 하봉(취사)_완",
+};
 
-export function isValidTeam(value: unknown): value is Team {
-  return TEAMS.includes(value as Team);
+export const JEUNGBING_TABS: Record<TabType, string> = {
+  "일반": "하동(일반)_완",
+  "취사": "하동(취사)_완",
+};
+
+// 장부 데이터 행 범위
+export const JANGBU_DATA_START_ROW = 3; // 1-indexed (일반·취사 공통)
+export const JANGBU_DATA_MAX_ROW = 134; // 1-indexed
+
+// 탭별 열 매핑
+// 일반: F=No. G=지출일자 H=항목 I=금액 J=비고 K=상태
+// 취사: H=No. I=지출일자           J=금액 K=비고 L=상태
+export const JANGBU_LAYOUT: Record<TabType, {
+  noCol: string;
+  dateCol: string;
+  writeStart: string;
+  writeEnd: string;
+}> = {
+  "일반": { noCol: "F", dateCol: "G", writeStart: "F", writeEnd: "K" },
+  "취사": { noCol: "H", dateCol: "I", writeStart: "H", writeEnd: "L" },
+};
+
+export function isValidTabType(v: unknown): v is TabType {
+  return TAB_TYPES.includes(v as TabType);
 }
