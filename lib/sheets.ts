@@ -1,51 +1,238 @@
-import { GoogleSpreadsheet } from "google-spreadsheet";
-import { JWT } from "google-auth-library";
-import { Team, tabNameForTeam, DEFAULT_STATUS, HEADERS } from "./config";
+import {
+  getToken,
+  sheetsGetValues,
+  sheetsUpdateValues,
+  sheetsBatchUpdateValues,
+  sheetsBatchUpdateRequests,
+  sheetsGetMeta,
+} from "./gapi";
+import {
+  TabType,
+  JANGBU_TABS,
+  JEUNGBING_TABS,
+  DEFAULT_STATUS,
+  JANGBU_DATA_START_ROW,
+  JANGBU_DATA_MAX_ROW,
+  JANGBU_LAYOUT,
+} from "./config";
 
-function now(): string {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+// ──────────────────────────────────────────────
+// 항목 목록 (세부항목 리스트 탭 B열에서 동적 로드)
+// ──────────────────────────────────────────────
+
+const ITEMS_TAB = "회계를 부탁해-세부항목 리스트";
+
+// tabType 파라미터는 하동 단일 지역이므로 B열 고정 (B=하동).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function getItemList(_tabType: TabType): Promise<string[]> {
+  const token = await getToken();
+  const sheetId = process.env.SHEET_ID_JANGBU;
+  if (!sheetId) throw new Error("SHEET_ID_JANGBU 환경변수 누락");
+
+  // 1행=공지, 2행=지역헤더(B=하동), 3행~=항목. 중간 빈 행 있어도 전체 읽고 필터.
+  const rows = await sheetsGetValues(token, sheetId, `'${ITEMS_TAB}'!B3:B`);
+
+  // 빈 셀만 제외. 값 가공 금지 — 공백·괄호 바꾸면 SUMIF 매칭 깨짐.
+  return rows.map((r) => r[0] ?? "").filter((v) => v !== "");
 }
 
-function getAuth(): JWT {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const key = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
-  if (!email || !key) throw new Error("Google 서비스 계정 환경변수 누락");
-  return new JWT({ email, key, scopes: ["https://www.googleapis.com/auth/spreadsheets"] });
+// ──────────────────────────────────────────────
+// 두 시트 동시 기록
+// ──────────────────────────────────────────────
+
+export interface RecordData {
+  지출일자: string;
+  항목?: string;
+  금액: number;
+  비고: string;
 }
 
-export interface RowData {
-  날짜: string;
-  상호: string;
-  항목: string;
-  금액: string | number;
+export async function saveRecord(
+  tabType: TabType,
+  data: RecordData,
+  driveImageUrl?: string,
+): Promise<{ no: number }> {
+  const token = await getToken();
+
+  const jangbuId = process.env.SHEET_ID_JANGBU;
+  const jeungbingId = process.env.SHEET_ID_JEUNGBING;
+  if (!jangbuId) throw new Error("SHEET_ID_JANGBU 환경변수 누락");
+  if (!jeungbingId) throw new Error("SHEET_ID_JEUNGBING 환경변수 누락");
+
+  const jangbuTab = JANGBU_TABS[tabType];
+  const jeungbingTab = JEUNGBING_TABS[tabType];
+
+  const layout = JANGBU_LAYOUT[tabType];
+
+  // ── 1. 장부: 다음 No. 계산 ──
+  // No.열은 템플릿으로 미리 채워진 경우가 있으므로 지출일자 열로 실제 데이터 행 판별
+  const ndRows = await sheetsGetValues(
+    token, jangbuId,
+    `'${jangbuTab}'!${layout.noCol}${JANGBU_DATA_START_ROW}:${layout.dateCol}${JANGBU_DATA_MAX_ROW}`,
+  );
+
+  // 지출일자(index 1)가 채워진 행 = 실제 데이터
+  const realRows = ndRows.filter((r) => r[1]?.trim());
+  const realNos = realRows.map((r) => parseInt(r[0] ?? "", 10)).filter((n) => !isNaN(n));
+  const no = realNos.length > 0 ? Math.max(...realNos) + 1 : 1;
+
+  // 마지막 실제 데이터 행 다음에 기록
+  let lastRealIdx = -1;
+  for (let i = ndRows.length - 1; i >= 0; i--) {
+    if (ndRows[i]?.[1]?.trim()) { lastRealIdx = i; break; }
+  }
+  const writeRow = JANGBU_DATA_START_ROW + lastRealIdx + 1; // 1-indexed
+
+  if (writeRow > JANGBU_DATA_MAX_ROW) {
+    throw new Error(
+      `장부 시트가 꽉 찼습니다 (No.${no}, 행${writeRow}). ` +
+      `시트의 SUMIF 범위를 확장해 주세요.`,
+    );
+  }
+
+  // ── 2. 장부 기록 ──
+  // 일반: F~K = [No., 지출일자, 항목, 금액, 비고, 상태]
+  // 취사: H~L = [No., 지출일자, 금액, 비고, 상태]  (항목 열 없음)
+  const writeValues = tabType === "일반"
+    ? [no, data.지출일자, data.항목 ?? "", data.금액, data.비고, DEFAULT_STATUS]
+    : [no, data.지출일자, data.금액, data.비고, DEFAULT_STATUS];
+  await sheetsUpdateValues(
+    token,
+    jangbuId,
+    `'${jangbuTab}'!${layout.writeStart}${writeRow}:${layout.writeEnd}${writeRow}`,
+    [writeValues],
+  );
+
+  // ── 3. 증빙 기록 ──
+  try {
+    await writeJeungbing(token, jeungbingId, jeungbingTab, no, data, driveImageUrl);
+  } catch (e) {
+    // 장부는 성공, 증빙만 실패 — 부분 실패 메시지 포함해 throw
+    throw new Error(
+      `장부 기록 완료 (No.${no}), 증빙 기록 실패: ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+
+  return { no };
 }
 
-export async function appendRow(team: Team, data: RowData): Promise<void> {
-  const auth = getAuth();
-  const sheetId = process.env.SHEET_ID;
-  if (!sheetId) throw new Error("SHEET_ID 환경변수 누락");
+// ──────────────────────────────────────────────
+// 증빙 시트 블록 기록
+// ──────────────────────────────────────────────
 
-  const doc = new GoogleSpreadsheet(sheetId, auth);
-  await doc.loadInfo();
+async function writeJeungbing(
+  token: string,
+  spreadsheetId: string,
+  tabName: string,
+  no: number,
+  data: RecordData,
+  driveImageUrl?: string,
+) {
+  const meta = await sheetsGetMeta(token, spreadsheetId, tabName);
+  const numericSheetId = meta.sheetId;
 
-  const tabName = tabNameForTeam(team);
-  const sheet = doc.sheetsByTitle[tabName];
-  if (!sheet) throw new Error(`탭을 찾을 수 없습니다: "${tabName}"`);
+  // 블록 위치 계산
+  const blockIndex = (no - 1) % 5;
+  const blockGroup = Math.floor((no - 1) / 5);
+  const rowStart = 1 + blockGroup * 3; // 0-indexed, row 0 = 제목란(skip)
+  const colBunho = blockIndex * 3;
+  const colData1 = blockIndex * 3 + 1;
+  const colData2 = blockIndex * 3 + 2;
 
-  await sheet.loadHeaderRow();
-  const headers = sheet.headerValues;
-  const missing = HEADERS.filter((h) => !headers.includes(h));
-  if (missing.length > 0) throw new Error(`헤더 불일치 — 누락: ${missing.join(", ")}`);
+  // ── 행/열 부족 시 자동 확장 ──
+  const requiredRows = rowStart + 3;
+  const requiredCols = colData2 + 1;
+  const expandRequests: unknown[] = [];
+  if (requiredRows > meta.rowCount)
+    expandRequests.push({ appendDimension: { sheetId: numericSheetId, dimension: "ROWS", length: requiredRows - meta.rowCount + 12 } });
+  if (requiredCols > meta.columnCount)
+    expandRequests.push({ appendDimension: { sheetId: numericSheetId, dimension: "COLUMNS", length: requiredCols - meta.columnCount + 3 } });
+  if (expandRequests.length > 0)
+    await sheetsBatchUpdateRequests(token, spreadsheetId, expandRequests);
 
-  await sheet.addRow({
-    날짜: data.날짜,
-    팀: team,
-    상호: data.상호,
-    항목: data.항목,
-    금액: String(data.금액),
-    상태: DEFAULT_STATUS,
-    입력시간: now(),
-  });
+  // ── 원하는 병합 범위 정의 ──
+  // 블록 구조 (스프레드시트 기준, rowStart=0-indexed):
+  //   rowStart+0: [A=번호↕] B=항목  C=금액
+  //   rowStart+1: [A=번호↕] B:C merged = 비고
+  //   rowStart+2: [A=empty] B:C merged = 사진
+  type GRange = { startRowIndex: number; endRowIndex: number; startColumnIndex: number; endColumnIndex: number };
+  const desired: GRange[] = [
+    // 번호 세로 병합: A2:A3 → rowStart ~ rowStart+1
+    { startRowIndex: rowStart, endRowIndex: rowStart + 2, startColumnIndex: colBunho, endColumnIndex: colBunho + 1 },
+    // 비고 가로 병합: B3:C3 → rowStart+1
+    { startRowIndex: rowStart + 1, endRowIndex: rowStart + 2, startColumnIndex: colData1, endColumnIndex: colData2 + 1 },
+    // 사진 가로 병합: B4:C4 → rowStart+2
+    { startRowIndex: rowStart + 2, endRowIndex: rowStart + 3, startColumnIndex: colData1, endColumnIndex: colData2 + 1 },
+  ];
+
+  const overlaps = (a: GRange, b: GRange) =>
+    a.startRowIndex < b.endRowIndex && a.endRowIndex > b.startRowIndex &&
+    a.startColumnIndex < b.endColumnIndex && a.endColumnIndex > b.startColumnIndex;
+
+  const equal = (a: GRange, b: GRange) =>
+    a.startRowIndex === b.startRowIndex && a.endRowIndex === b.endRowIndex &&
+    a.startColumnIndex === b.startColumnIndex && a.endColumnIndex === b.endColumnIndex;
+
+  // 기존 충돌 병합 해제 (부분 겹침 → 먼저 해제해야 새 병합 가능)
+  const existing = meta.merges.map(({ startRowIndex, endRowIndex, startColumnIndex, endColumnIndex }) =>
+    ({ startRowIndex, endRowIndex, startColumnIndex, endColumnIndex })
+  );
+  const toUnmerge = existing.filter(e => desired.some(d => overlaps(e, d) && !equal(e, d)));
+  if (toUnmerge.length > 0) {
+    await sheetsBatchUpdateRequests(token, spreadsheetId,
+      toUnmerge.map(r => ({ unmergeCells: { range: { sheetId: numericSheetId, ...r } } }))
+    );
+  }
+
+  // ── 셀 값 기록 ──
+  const imageFormula = driveImageUrl ? `=IMAGE("${driveImageUrl}")` : "사진없음";
+  await sheetsBatchUpdateValues(token, spreadsheetId, [
+    { range: a1(tabName, rowStart,     colBunho), values: [[no]] },              // A2: 번호 (merge 상단)
+    { range: a1(tabName, rowStart,     colData1), values: [[data.항목 || "취사비"]] }, // B2: 항목
+    { range: a1(tabName, rowStart,     colData2), values: [[data.금액]] },        // C2: 금액
+    { range: a1(tabName, rowStart + 1, colData1), values: [[data.비고 || ""]] }, // B3:C3 비고
+    { range: a1(tabName, rowStart + 2, colData1), values: [[imageFormula]] },    // B4:C4 사진
+  ]);
+
+  // ── 병합 적용 (이미 정확히 병합된 범위는 skip) ──
+  const needsMerge = desired.filter(d => !existing.some(e => equal(e, d)));
+  if (needsMerge.length > 0) {
+    await sheetsBatchUpdateRequests(token, spreadsheetId,
+      needsMerge.map(r => mergeCells(numericSheetId, r.startRowIndex, r.endRowIndex, r.startColumnIndex, r.endColumnIndex))
+    );
+  }
+}
+
+// ──────────────────────────────────────────────
+// 유틸
+// ──────────────────────────────────────────────
+
+function colLetter(col: number): string {
+  let result = "";
+  let c = col + 1;
+  while (c > 0) {
+    c--;
+    result = String.fromCharCode(65 + (c % 26)) + result;
+    c = Math.floor(c / 26);
+  }
+  return result;
+}
+
+function a1(tab: string, row: number, col: number): string {
+  return `'${tab}'!${colLetter(col)}${row + 1}`;
+}
+
+function mergeCells(
+  sheetId: number,
+  startRow: number,
+  endRow: number,
+  startCol: number,
+  endCol: number,
+) {
+  return {
+    mergeCells: {
+      range: { sheetId, startRowIndex: startRow, endRowIndex: endRow, startColumnIndex: startCol, endColumnIndex: endCol },
+      mergeType: "MERGE_ALL",
+    },
+  };
 }
