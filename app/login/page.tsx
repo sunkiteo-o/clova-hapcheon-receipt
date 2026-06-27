@@ -27,35 +27,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "var(--tint-50)",
-      }}
-    >
-      <div
-        style={{
-          background: "var(--bg)",
-          border: "1px solid var(--border-200)",
-          borderRadius: 12,
-          padding: "40px 36px",
-          width: 340,
-          boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-        }}
-      >
-        <h1
-          style={{
-            fontSize: 20,
-            fontWeight: 700,
-            color: "var(--ink)",
-            marginBottom: 24,
-            textAlign: "center",
-          }}
-        >
-          영수증 입력 시스템
+    <div className="min-h-screen flex items-center justify-center bg-tint-50">
+      <div className="bg-bg border border-border-200 rounded-xl py-10 px-9 w-85 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+        <h1 className="text-[20px] font-semibold text-ink mb-6 text-center">
+          회계를 부탁해 😎
         </h1>
         <form onSubmit={handleSubmit}>
           <input
@@ -65,34 +40,17 @@ export default function LoginPage() {
             onChange={(e) => setPw(e.target.value)}
             autoFocus
             required
-            style={{
-              width: "100%",
-              padding: "10px 14px",
-              border: "1px solid var(--border-200)",
-              borderRadius: 8,
-              fontSize: 16,
-              color: "var(--ink)",
-              outline: "none",
-              marginBottom: 12,
-            }}
+            className="w-full px-3.5 py-2.5 border border-border-200 rounded-lg text-base text-ink outline-none mb-3"
           />
           {error && (
-            <p style={{ color: "#d94f4f", fontSize: 13, marginBottom: 12 }}>{error}</p>
+            <p className="text-error text-[13px] mb-3">{error}</p>
           )}
           <button
             type="submit"
             disabled={loading}
-            style={{
-              width: "100%",
-              padding: "11px",
-              background: loading ? "var(--primary)" : "var(--primary-600)",
-              color: "#fff",
-              border: "none",
-              borderRadius: 8,
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: loading ? "not-allowed" : "pointer",
-            }}
+            className={`w-full py-2.75 text-white border-none rounded-lg text-[15px] font-semibold ${
+              loading ? "bg-primary cursor-not-allowed" : "bg-primary-600 cursor-pointer"
+            }`}
           >
             {loading ? "확인 중..." : "로그인"}
           </button>

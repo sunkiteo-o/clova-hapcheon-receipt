@@ -2,21 +2,29 @@
 import { useState, useRef, ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import imageCompression from "browser-image-compression";
-import { TEAMS, Team } from "@/lib/config";
+import { TAB_TYPES, TabType } from "@/lib/config";
+import { setPendingImage } from "@/lib/image-store";
 
-const SHEET_URL = process.env.NEXT_PUBLIC_SHEET_URL;
+const JANGBU_URL = process.env.NEXT_PUBLIC_SHEET_URL;
+const JEUNGBING_URL = process.env.NEXT_PUBLIC_JEUNGBING_URL;
+
+type Step = "tab" | "photo";
+type LoadingState = "idle" | "compressing" | "uploading" | "ocr" | "done";
 
 export default function UploadPage() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [team, setTeam] = useState<Team | null>(null);
+
+  const [tab, setTab] = useState<TabType | null>(null);
+  const [step, setStep] = useState<Step>("tab");
   const [preview, setPreview] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadingState, setLoadingState] = useState<LoadingState>("idle");
   const [error, setError] = useState("");
 
-  function handleTeamClick(t: Team) {
-    setTeam(t);
+  function handleTabSelect(t: TabType) {
+    setTab(t);
+    setStep("photo");
     setPreview(null);
     setFile(null);
     setError("");
@@ -31,93 +39,87 @@ export default function UploadPage() {
   }
 
   async function handleAnalyze() {
-    if (!team || !file) return;
-    setLoading(true);
+    if (!tab || !file) return;
     setError("");
+
     try {
+      setLoadingState("compressing");
       const compressed = await imageCompression(file, {
         maxSizeMB: 4,
         maxWidthOrHeight: 2048,
         useWebWorker: true,
+        exifOrientation: -1,
       });
+
       const base64 = await toBase64(compressed);
-      const format = compressed.type.split("/")[1] ?? "jpeg";
+      const mimeType = compressed.type || "image/jpeg";
+      const ext = mimeType.split("/")[1] ?? "jpg";
+      const filename = `receipt_${Date.now()}.${ext}`;
 
-      const res = await fetch("/api/ocr", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: base64, format }),
-      });
-
-      const params = new URLSearchParams({ team });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.날짜) params.set("날짜", data.날짜);
-        if (data.상호) params.set("상호", data.상호);
-        if (data.금액) params.set("금액", data.금액);
-        if (data.신뢰도) {
-          params.set("conf_날짜", String(data.신뢰도.날짜));
-          params.set("conf_상호", String(data.신뢰도.상호));
-          params.set("conf_금액", String(data.신뢰도.금액));
-        }
-      }
-      // OCR 실패해도 review 페이지로 이동 (빈 필드로)
-      router.push(`/review?${params.toString()}`);
+      setPendingImage({ base64, mimeType, filename });
+      sessionStorage.setItem("review_tab", tab);
+      setLoadingState("done");
+      router.push(`/review?tab=${encodeURIComponent(tab)}`);
     } catch {
-      setError("이미지 처리 중 오류가 발생했습니다.");
-      setLoading(false);
+      setError("사진 처리 중 오류가 발생했습니다.");
+      setLoadingState("idle");
     }
   }
 
+  function handleManualEntry() {
+    if (!tab) return;
+    sessionStorage.setItem("review_tab", tab);
+    router.push(`/review?tab=${encodeURIComponent(tab)}`);
+  }
+
+  const isLoading = loadingState !== "idle" && loadingState !== "done";
+  const loadingLabel =
+    loadingState === "compressing"
+      ? "사진 압축 중..."
+      : loadingState === "uploading"
+        ? "업로드 중..."
+        : loadingState === "ocr"
+          ? "OCR 분석 중..."
+          : "처리 중...";
+
   return (
-    <div style={{ minHeight: "100vh", background: "var(--tint-50)", padding: "32px 16px" }}>
-      <div style={{ maxWidth: 520, margin: "0 auto" }}>
+    <div className="min-h-screen bg-tint-50 px-4 py-8">
+      <div className="max-w-120 mx-auto bg-bg border border-border-200 rounded-xl py-7 px-6 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
 
         {/* 헤더 */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--ink)" }}>영수증 입력</h1>
-          {SHEET_URL && (
-            <a
-              href={SHEET_URL}
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                fontSize: 13,
-                color: "var(--primary-600)",
-                fontWeight: 600,
-                textDecoration: "none",
-                border: "1px solid var(--border-200)",
-                borderRadius: 8,
-                padding: "6px 12px",
-                background: "var(--bg)",
-              }}
-            >
-              시트 바로가기 ↗
-            </a>
-          )}
+        <div className="flex justify-between items-center mb-9">
+          <h1 className="text-[22px] font-semibold text-ink m-0">
+            회계를 부탁해 😎
+          </h1>
+          <div className="flex gap-1.5">
+            {JANGBU_URL && (
+              <a href={JANGBU_URL} target="_blank" rel="noreferrer"
+                className="text-[13px] text-primary-600 font-semibold no-underline border border-border-200 rounded-lg px-2.5 py-1.25 bg-bg">
+                장부 ↗
+              </a>
+            )}
+            {JEUNGBING_URL && (
+              <a href={JEUNGBING_URL} target="_blank" rel="noreferrer"
+                className="text-[13px] text-primary-600 font-semibold no-underline border border-border-200 rounded-lg px-2.5 py-1.25 bg-bg">
+                증빙 ↗
+              </a>
+            )}
+          </div>
         </div>
 
-        {/* 팀 선택 */}
-        <section style={{ marginBottom: 28 }}>
-          <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 10, fontWeight: 600 }}>
-            팀 선택
-          </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {TEAMS.map((t) => (
+        {/* Step 1: 탭 선택 */}
+        <section className="mb-6">
+          <p className="text-xs font-semibold text-muted mb-2">구분 선택</p>
+          <div className="flex gap-2.5">
+            {TAB_TYPES.map((t) => (
               <button
                 key={t}
-                onClick={() => handleTeamClick(t)}
-                style={{
-                  padding: "9px 18px",
-                  borderRadius: 10,
-                  border: "1.5px solid",
-                  borderColor: team === t ? "var(--primary-600)" : "var(--border-200)",
-                  background: team === t ? "var(--primary)" : "var(--bg)",
-                  color: team === t ? "var(--primary-700)" : "var(--ink)",
-                  fontWeight: team === t ? 700 : 400,
-                  fontSize: 15,
-                  cursor: "pointer",
-                }}
+                onClick={() => handleTabSelect(t)}
+                className={`flex-1 py-3.5 rounded-[10px] border-[1.5px] text-base cursor-pointer transition-colors ${
+                  tab === t
+                    ? "border-primary-600 bg-primary text-primary-700 font-bold"
+                    : "border-border-200 bg-bg text-ink font-normal"
+                }`}
               >
                 {t}
               </button>
@@ -125,92 +127,74 @@ export default function UploadPage() {
           </div>
         </section>
 
-        {/* 이미지 업로드 */}
-        <section>
-          <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 10, fontWeight: 600 }}>
-            영수증 사진
-          </p>
-          <div
-            onClick={() => team && fileRef.current?.click()}
-            style={{
-              border: "2px dashed var(--border-200)",
-              borderRadius: 12,
-              background: "var(--bg)",
-              minHeight: 200,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: team ? "pointer" : "not-allowed",
-              opacity: team ? 1 : 0.5,
-              overflow: "hidden",
-              position: "relative",
-            }}
-          >
-            {preview ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={preview}
-                alt="영수증 미리보기"
-                style={{ maxWidth: "100%", maxHeight: 360, objectFit: "contain" }}
-              />
-            ) : (
-              <div style={{ textAlign: "center", color: "var(--muted)" }}>
-                <div style={{ fontSize: 40, marginBottom: 8 }}>📷</div>
-                <p style={{ fontSize: 14 }}>
-                  {team ? "클릭하여 사진 선택" : "팀을 먼저 선택하세요"}
-                </p>
-              </div>
+        {/* Step 2: 사진 업로드 */}
+        {step === "photo" && (
+          <section>
+            <p className="text-xs font-semibold text-muted mb-2">영수증 사진</p>
+            <div
+              onClick={() => fileRef.current?.click()}
+              className="border-2 border-dashed border-border-200 rounded-xl bg-bg min-h-45 flex flex-col items-center justify-center cursor-pointer overflow-hidden mb-4"
+            >
+              {preview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={preview}
+                  alt="영수증 미리보기"
+                  className="max-w-full max-h-85 object-contain"
+                />
+              ) : (
+                <div className="text-center text-muted p-6">
+                  <div className="text-4xl mb-2">📷</div>
+                  <p className="text-sm">클릭하여 사진 선택</p>
+                </div>
+              )}
+            </div>
+
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+
+            {error && (
+              <p className="text-error text-[13px] mb-3">{error}</p>
             )}
-          </div>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFileChange}
-            style={{ display: "none" }}
-          />
-        </section>
 
-        {/* 오류 */}
-        {error && (
-          <p style={{ color: "#d94f4f", fontSize: 13, marginTop: 12 }}>{error}</p>
+            <div className="flex flex-col gap-2.5">
+              {file && (
+                <button
+                  onClick={handleAnalyze}
+                  disabled={isLoading}
+                  className={`w-full py-3.25 bg-primary-600 text-white border-none rounded-[10px] text-[15px] font-bold transition-opacity ${
+                    isLoading ? "opacity-70 cursor-not-allowed" : "cursor-pointer"
+                  }`}
+                >
+                  {isLoading ? loadingLabel : "지출 내역 입력하기"}
+                </button>
+              )}
+              <button
+                onClick={handleManualEntry}
+                disabled={isLoading}
+                className="w-full py-3.25 bg-bg text-ink border-[1.5px] border-border-200 rounded-[10px] text-[15px] font-medium cursor-pointer"
+              >
+                직접 입력
+              </button>
+            </div>
+          </section>
         )}
 
-        {/* 분석 버튼 */}
-        {file && team && (
-          <button
-            onClick={handleAnalyze}
-            disabled={loading}
-            style={{
-              marginTop: 20,
-              width: "100%",
-              padding: "13px",
-              background: loading ? "var(--primary)" : "var(--primary-600)",
-              color: "#fff",
-              border: "none",
-              borderRadius: 10,
-              fontSize: 16,
-              fontWeight: 700,
-              cursor: loading ? "not-allowed" : "pointer",
-            }}
-          >
-            {loading ? "분석 중..." : "분석하기"}
-          </button>
-        )}
       </div>
     </div>
   );
 }
 
-function toBase64(file: File): Promise<string> {
+async function toBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      resolve(result.split(",")[1]);
-    };
+    reader.onload = () => resolve((reader.result as string).split(",")[1]);
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
