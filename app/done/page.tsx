@@ -77,7 +77,7 @@ export default function DonePage() {
         </div>
 
         {/* 구분선 */}
-        <div className="border-t border-dashed border-border-200 py-5" />
+        <div className="border-t border-dashed border-border-200" />
 
         {/* 다음 행동 영역 (할 일) */}
         <div className="px-8 pt-8 pb-10">
