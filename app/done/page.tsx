@@ -1,11 +1,12 @@
 "use client";
 import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense } from "react";
 import { JANGBU_TABS, JEUNGBING_TABS, TabType } from "@/lib/config";
 
 const JANGBU_URL = process.env.NEXT_PUBLIC_SHEET_URL;
 const JEUNGBING_URL = process.env.NEXT_PUBLIC_JEUNGBING_URL;
 
-export default function DonePage() {
+function DoneContent() {
   const params = useSearchParams();
   const router = useRouter();
 
@@ -110,5 +111,13 @@ export default function DonePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function DonePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-tint-50" />}>
+      <DoneContent />
+    </Suspense>
   );
 }
