@@ -1,25 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidTeam } from "@/lib/config";
-import { appendRow } from "@/lib/sheets";
+import { isValidTabType } from "@/lib/config";
+import { saveRecord } from "@/lib/sheets";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { team, 날짜, 상호, 항목, 금액 } = body ?? {};
-  if (!isValidTeam(team)) {
-    return NextResponse.json({ error: "유효하지 않은 팀입니다." }, { status: 400 });
+  const { tab, 지출일자, 항목, 금액, 비고 } = body ?? {};
+
+  if (!isValidTabType(tab)) {
+    return NextResponse.json({ error: "tab 필드 필요 (일반 또는 취사)" }, { status: 400 });
   }
-  if (!날짜 || !상호 || !항목 || !금액) {
-    return NextResponse.json({ error: "모든 필드를 입력해 주세요." }, { status: 400 });
+  if (!지출일자 || !금액) {
+    return NextResponse.json({ error: "지출일자·금액은 필수입니다" }, { status: 400 });
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(날짜)) {
-    return NextResponse.json({ error: "날짜 형식이 올바르지 않습니다. YYYY-MM-DD로 입력해 주세요." }, { status: 400 });
+  if (tab === "일반" && !항목) {
+    return NextResponse.json({ error: "일반 탭은 항목이 필수입니다" }, { status: 400 });
   }
-  if (!/^\d+$/.test(String(금액).trim())) {
-    return NextResponse.json({ error: "금액은 숫자만 입력해 주세요." }, { status: 400 });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(지출일자)) {
+    return NextResponse.json({ error: "날짜 형식 오류 (YYYY-MM-DD)" }, { status: 400 });
   }
+
+  const 금액Num = parseInt(String(금액).replace(/[^0-9]/g, ""), 10);
+  if (isNaN(금액Num) || 금액Num <= 0) {
+    return NextResponse.json({ error: "금액은 양수 정수여야 합니다" }, { status: 400 });
+  }
+
   try {
-    await appendRow(team, { 날짜, 상호, 항목, 금액 });
-    return NextResponse.json({ ok: true });
+    const result = await saveRecord(
+      tab,
+      { 지출일자, 항목, 금액: 금액Num, 비고: 비고 ?? "" },
+    );
+    return NextResponse.json({ ok: true, no: result.no });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "저장 실패";
     return NextResponse.json({ error: msg }, { status: 500 });

@@ -1,123 +1,127 @@
 "use client";
-import { useState, useRef, ChangeEvent } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import imageCompression from "browser-image-compression";
-import { TEAMS, Team } from "@/lib/config";
+import { TAB_TYPES, TabType } from "@/lib/config";
 
-const SHEET_URL = process.env.NEXT_PUBLIC_SHEET_URL;
+const JANGBU_URL = process.env.NEXT_PUBLIC_SHEET_URL;
+const JEUNGBING_URL = process.env.NEXT_PUBLIC_JEUNGBING_URL;
 
-export default function UploadPage() {
+const INPUT_CLS =
+  "block w-full px-3 py-2.5 border-[1.5px] border-border-200 rounded-lg text-base text-ink bg-bg outline-none";
+
+type Step = "tab" | "form";
+
+export default function Page() {
   const router = useRouter();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [team, setTeam] = useState<Team | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [step, setStep] = useState<Step>("tab");
+  const [tab, setTab] = useState<TabType | null>(null);
 
-  function handleTeamClick(t: Team) {
-    setTeam(t);
-    setPreview(null);
-    setFile(null);
-    setError("");
+  const [지출일자, set지출일자] = useState("");
+  const [항목, set항목] = useState("");
+  const [금액, set금액] = useState("");
+  const [비고, set비고] = useState("");
+
+  const [items, setItems] = useState<string[]>([]);
+  const [itemsLoading, setItemsLoading] = useState(false);
+  const [itemsError, setItemsError] = useState("");
+
+  const [saving, setSaving] = useState(false);
+  const [errMsg, setErrMsg] = useState("");
+
+  useEffect(() => {
+    if (!tab || tab === "취사") return;
+    fetch(`/api/items?tab=${encodeURIComponent(tab)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setItems(data.error ? [] : (data.items ?? []));
+        if (data.error) setItemsError(data.error);
+        setItemsLoading(false);
+      })
+      .catch((e) => {
+        setItemsError(String(e));
+        setItemsLoading(false);
+      });
+  }, [tab]);
+
+  function handleTabSelect(t: TabType) {
+    setTab(t);
+    set항목("");
+    setErrMsg("");
+    setItems([]);
+    setItemsError("");
+    if (t !== "취사") setItemsLoading(true);
+    setStep("form");
   }
 
-  function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
-    setError("");
-  }
+  async function handleSave(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!tab) return;
+    if (tab === "일반" && !항목) { setErrMsg("항목을 선택해 주세요."); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(지출일자)) { setErrMsg("날짜 형식 오류 (YYYY-MM-DD)"); return; }
+    if (!/^\d+$/.test(금액.trim())) { setErrMsg("금액은 숫자만 입력하세요 (예: 15000)"); return; }
 
-  async function handleAnalyze() {
-    if (!team || !file) return;
-    setLoading(true);
-    setError("");
-    try {
-      const compressed = await imageCompression(file, {
-        maxSizeMB: 4,
-        maxWidthOrHeight: 2048,
-        useWebWorker: true,
+    setSaving(true);
+    setErrMsg("");
+
+    const res = await fetch("/api/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tab, 지출일자, 항목, 금액: 금액.trim(), 비고 }),
+    });
+    const data = await res.json();
+    setSaving(false);
+
+    if (res.ok) {
+      const qs = new URLSearchParams({
+        no: String(data.no),
+        tab,
+        항목,
+        금액: 금액.trim(),
       });
-      const base64 = await toBase64(compressed);
-      const format = compressed.type.split("/")[1] ?? "jpeg";
-
-      const res = await fetch("/api/ocr", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: base64, format }),
-      });
-
-      const params = new URLSearchParams({ team });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.날짜) params.set("날짜", data.날짜);
-        if (data.상호) params.set("상호", data.상호);
-        if (data.금액) params.set("금액", data.금액);
-        if (data.신뢰도) {
-          params.set("conf_날짜", String(data.신뢰도.날짜));
-          params.set("conf_상호", String(data.신뢰도.상호));
-          params.set("conf_금액", String(data.신뢰도.금액));
-        }
-      }
-      // OCR 실패해도 review 페이지로 이동 (빈 필드로)
-      router.push(`/review?${params.toString()}`);
-    } catch {
-      setError("이미지 처리 중 오류가 발생했습니다.");
-      setLoading(false);
+      router.push(`/done?${qs.toString()}`);
+    } else {
+      setErrMsg(data.error ?? "저장 실패");
     }
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--tint-50)", padding: "32px 16px" }}>
-      <div style={{ maxWidth: 520, margin: "0 auto" }}>
+    <div className="min-h-screen bg-tint-50 px-4 py-8">
+      <div className="max-w-120 mx-auto bg-bg border border-border-200 rounded-xl py-7 px-6 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
 
         {/* 헤더 */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--ink)" }}>영수증 입력</h1>
-          {SHEET_URL && (
-            <a
-              href={SHEET_URL}
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                fontSize: 13,
-                color: "var(--primary-600)",
-                fontWeight: 600,
-                textDecoration: "none",
-                border: "1px solid var(--border-200)",
-                borderRadius: 8,
-                padding: "6px 12px",
-                background: "var(--bg)",
-              }}
-            >
-              시트 바로가기 ↗
-            </a>
-          )}
+        <div className="flex justify-between items-center mb-9">
+          <h1 className="text-[22px] font-semibold text-ink m-0">
+            회계를 부탁해 😎
+          </h1>
+          <div className="flex gap-1.5">
+            {JANGBU_URL && (
+              <a href={JANGBU_URL} target="_blank" rel="noreferrer"
+                className="text-[13px] text-primary-600 font-semibold no-underline border border-border-200 rounded-lg px-2.5 py-1.25 bg-bg">
+                장부 ↗
+              </a>
+            )}
+            {JEUNGBING_URL && (
+              <a href={JEUNGBING_URL} target="_blank" rel="noreferrer"
+                className="text-[13px] text-primary-600 font-semibold no-underline border border-border-200 rounded-lg px-2.5 py-1.25 bg-bg">
+                증빙 ↗
+              </a>
+            )}
+          </div>
         </div>
 
-        {/* 팀 선택 */}
-        <section style={{ marginBottom: 28 }}>
-          <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 10, fontWeight: 600 }}>
-            팀 선택
-          </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {TEAMS.map((t) => (
+        {/* 구분 선택 */}
+        <section className="mb-6">
+          <p className="text-xs font-semibold text-muted mb-2">구분 선택</p>
+          <div className="flex gap-2.5">
+            {TAB_TYPES.map((t) => (
               <button
                 key={t}
-                onClick={() => handleTeamClick(t)}
-                style={{
-                  padding: "9px 18px",
-                  borderRadius: 10,
-                  border: "1.5px solid",
-                  borderColor: team === t ? "var(--primary-600)" : "var(--border-200)",
-                  background: team === t ? "var(--primary)" : "var(--bg)",
-                  color: team === t ? "var(--primary-700)" : "var(--ink)",
-                  fontWeight: team === t ? 700 : 400,
-                  fontSize: 15,
-                  cursor: "pointer",
-                }}
+                onClick={() => handleTabSelect(t)}
+                className={`flex-1 py-3.5 rounded-[10px] border-[1.5px] text-base cursor-pointer transition-colors ${
+                  tab === t
+                    ? "border-primary-600 bg-primary text-primary-700 font-bold"
+                    : "border-border-200 bg-bg text-ink font-normal"
+                }`}
               >
                 {t}
               </button>
@@ -125,93 +129,88 @@ export default function UploadPage() {
           </div>
         </section>
 
-        {/* 이미지 업로드 */}
-        <section>
-          <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 10, fontWeight: 600 }}>
-            영수증 사진
-          </p>
-          <div
-            onClick={() => team && fileRef.current?.click()}
-            style={{
-              border: "2px dashed var(--border-200)",
-              borderRadius: 12,
-              background: "var(--bg)",
-              minHeight: 200,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: team ? "pointer" : "not-allowed",
-              opacity: team ? 1 : 0.5,
-              overflow: "hidden",
-              position: "relative",
-            }}
-          >
-            {preview ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={preview}
-                alt="영수증 미리보기"
-                style={{ maxWidth: "100%", maxHeight: 360, objectFit: "contain" }}
+        {/* 입력 폼 */}
+        {step === "form" && tab && (
+          <form onSubmit={handleSave}>
+            {/* 지출일자 */}
+            <div className="mb-4">
+              <label className="block text-xs font-semibold text-muted mb-1.25">지출일자</label>
+              <input
+                type="date"
+                value={지출일자}
+                onChange={(e) => set지출일자(e.target.value)}
+                required
+                className={INPUT_CLS}
               />
-            ) : (
-              <div style={{ textAlign: "center", color: "var(--muted)" }}>
-                <div style={{ fontSize: 40, marginBottom: 8 }}>📷</div>
-                <p style={{ fontSize: 14 }}>
-                  {team ? "클릭하여 사진 선택" : "팀을 먼저 선택하세요"}
-                </p>
+            </div>
+
+            {/* 항목 드롭다운 — 일반 탭만 */}
+            {tab !== "취사" && (
+              <div className="mb-4">
+                <label className="block text-xs font-semibold text-muted mb-1.25">세부항목</label>
+                {itemsLoading ? (
+                  <div className="px-3 py-2.5 text-muted text-sm">항목 목록 로딩 중…</div>
+                ) : itemsError ? (
+                  <div className="px-3 py-2.5 text-error text-[13px] border-[1.5px] border-error rounded-lg">
+                    항목 로드 실패: {itemsError}
+                  </div>
+                ) : (
+                  <select
+                    value={항목}
+                    onChange={(e) => set항목(e.target.value)}
+                    required
+                    className={`${INPUT_CLS} appearance-none`}
+                  >
+                    <option value="">세부항목 선택 ({items.length}개)</option>
+                    {items.map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                    ))}
+                  </select>
+                )}
               </div>
             )}
-          </div>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFileChange}
-            style={{ display: "none" }}
-          />
-        </section>
 
-        {/* 오류 */}
-        {error && (
-          <p style={{ color: "#d94f4f", fontSize: 13, marginTop: 12 }}>{error}</p>
+            {/* 금액 */}
+            <div className="mb-4">
+              <label className="block text-xs font-semibold text-muted mb-1.25">금액 (원)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={금액}
+                onChange={(e) => set금액(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder="숫자만 입력"
+                required
+                className={INPUT_CLS}
+              />
+            </div>
+
+            {/* 비고 */}
+            <div className="mb-4">
+              <label className="block text-xs font-semibold text-muted mb-1.25">비고 (선택)</label>
+              <input
+                type="text"
+                value={비고}
+                onChange={(e) => set비고(e.target.value)}
+                placeholder="상호명, 메모 등"
+                className={INPUT_CLS}
+              />
+            </div>
+
+            {errMsg && <p className="text-error text-[13px] mb-3">{errMsg}</p>}
+
+            <button
+              type="submit"
+              disabled={saving || itemsLoading}
+              className={`w-full mt-2 py-3 px-6 bg-primary-600 text-white border-none rounded-[10px] text-[15px] font-bold transition-opacity ${
+                saving ? "opacity-70 cursor-not-allowed" : "cursor-pointer"
+              }`}
+            >
+              {saving ? "저장 중…" : "저장"}
+            </button>
+          </form>
         )}
 
-        {/* 분석 버튼 */}
-        {file && team && (
-          <button
-            onClick={handleAnalyze}
-            disabled={loading}
-            style={{
-              marginTop: 20,
-              width: "100%",
-              padding: "13px",
-              background: loading ? "var(--primary)" : "var(--primary-600)",
-              color: "#fff",
-              border: "none",
-              borderRadius: 10,
-              fontSize: 16,
-              fontWeight: 700,
-              cursor: loading ? "not-allowed" : "pointer",
-            }}
-          >
-            {loading ? "분석 중..." : "분석하기"}
-          </button>
-        )}
       </div>
     </div>
   );
-}
-
-function toBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      resolve(result.split(",")[1]);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
