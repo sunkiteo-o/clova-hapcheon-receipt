@@ -8,7 +8,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "영수증 입력",
+  title: "회계를 부탁해 😎",
   description: "취사 영수증 OCR 입력 도구",
 };
 

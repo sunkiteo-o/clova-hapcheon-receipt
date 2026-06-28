@@ -3,7 +3,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
 import { JANGBU_TABS, JEUNGBING_TABS, TabType } from "@/lib/config";
 
-const JANGBU_URL = process.env.NEXT_PUBLIC_SHEET_URL;
+const JANGBU_URL = process.env.NEXT_PUBLIC_JANGBU_URL;
 const JEUNGBING_URL = process.env.NEXT_PUBLIC_JEUNGBING_URL;
 
 function DoneContent() {

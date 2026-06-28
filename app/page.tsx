@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { TAB_TYPES, TabType } from "@/lib/config";
 
-const JANGBU_URL = process.env.NEXT_PUBLIC_SHEET_URL;
+const JANGBU_URL = process.env.NEXT_PUBLIC_JANGBU_URL;
 const JEUNGBING_URL = process.env.NEXT_PUBLIC_JEUNGBING_URL;
 
 const INPUT_CLS =
