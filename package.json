@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@vercel/blob": "^2.5.0",
     "browser-image-compression": "^2.0.2",
     "google-auth-library": "^10.9.0",
     "google-spreadsheet": "^5.3.0",

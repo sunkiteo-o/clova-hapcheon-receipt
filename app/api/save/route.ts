@@ -4,7 +4,7 @@ import { saveRecord } from "@/lib/sheets";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { tab, 지출일자, 항목, 금액, 비고 } = body ?? {};
+  const { tab, 지출일자, 항목, 금액, 비고, imageUrl } = body ?? {};
 
   if (!isValidTabType(tab)) {
     return NextResponse.json({ error: "tab 필드 필요 (일반 또는 취사)" }, { status: 400 });
@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
     const result = await saveRecord(
       tab,
       { 지출일자, 항목, 금액: 금액Num, 비고: 비고 ?? "" },
+      imageUrl as string | undefined,
     );
     return NextResponse.json({ ok: true, no: result.no });
   } catch (e) {
