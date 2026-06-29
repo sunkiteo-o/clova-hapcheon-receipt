@@ -28,13 +28,13 @@ export default function Page() {
             {JANGBU_URL && (
               <a href={JANGBU_URL} target="_blank" rel="noreferrer"
                 className="text-[13px] text-primary-600 font-semibold no-underline border border-border-200 rounded-lg px-2.5 py-1.25 bg-bg">
-                장부 ↗
+                장부 🔗
               </a>
             )}
             {JEUNGBING_URL && (
               <a href={JEUNGBING_URL} target="_blank" rel="noreferrer"
                 className="text-[13px] text-primary-600 font-semibold no-underline border border-border-200 rounded-lg px-2.5 py-1.25 bg-bg">
-                증빙 ↗
+                증빙 🔗
               </a>
             )}
           </div>

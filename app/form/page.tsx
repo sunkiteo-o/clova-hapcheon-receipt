@@ -69,7 +69,7 @@ function FormContent() {
     setSaving(false);
 
     if (res.ok) {
-      const qs = new URLSearchParams({ no: String(data.no), tab: validTab as string, 항목, 금액: 금액.trim() });
+      const qs = new URLSearchParams({ no: String(data.no), tab: validTab as string, 항목, 금액: 금액.trim(), 지출일자, 비고 });
       router.push(`/done?${qs.toString()}`);
     } else {
       setErrMsg(data.error ?? "저장 실패");
