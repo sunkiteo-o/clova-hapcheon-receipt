@@ -67,14 +67,14 @@ function DoneContent() {
         <div className="flex justify-center gap-4 mb-7">
           {JANGBU_URL && (
             <a href={JANGBU_URL} target="_blank" rel="noopener noreferrer"
-              className="text-[12px] font-semibold text-primary-600 no-underline hover:underline">
-              장부 🔗
+              className="text-[15px] font-semibold text-primary-600 no-underline hover:underline">
+              장부 시트 🔗
             </a>
           )}
           {JEUNGBING_URL && (
             <a href={JEUNGBING_URL} target="_blank" rel="noopener noreferrer"
-              className="text-[12px] font-semibold text-primary-600 no-underline hover:underline">
-              증빙 🔗
+              className="text-[15px] font-semibold text-primary-600 no-underline hover:underline">
+              증빙 시트 🔗
             </a>
           )}
         </div>
