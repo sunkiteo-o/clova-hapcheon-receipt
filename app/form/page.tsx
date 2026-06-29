@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { isValidTabType, TabType } from "@/lib/config";
+import { isValidCategory, isValidRegion, Category, Region } from "@/lib/config";
 
 const INPUT_CLS =
   "block w-full px-3 py-2.5 border-[1.5px] border-border-200 rounded-lg text-base text-ink bg-bg outline-none";
@@ -10,6 +10,7 @@ function FormContent() {
   const params = useSearchParams();
   const router = useRouter();
 
+  const regionRaw = params.get("region") ?? "";
   const tab = params.get("tab") ?? "";
   const imageUrl = params.get("imageUrl") ?? "";
 
@@ -25,12 +26,13 @@ function FormContent() {
   const [saving, setSaving] = useState(false);
   const [errMsg, setErrMsg] = useState("");
 
-  const validTab = isValidTabType(tab) ? (tab as TabType) : null;
+  const validRegion: Region | null = isValidRegion(regionRaw) ? regionRaw : null;
+  const validTab: Category | null = isValidCategory(tab) ? tab : null;
 
   useEffect(() => {
-    if (!validTab || validTab === "취사") return;
+    if (!validRegion || !validTab || validTab === "취사") return;
     setItemsLoading(true);
-    fetch(`/api/items?tab=${encodeURIComponent(validTab)}`)
+    fetch(`/api/items?region=${encodeURIComponent(validRegion)}`)
       .then((r) => r.json())
       .then((data) => {
         setItems(data.error ? [] : (data.items ?? []));
@@ -41,9 +43,9 @@ function FormContent() {
         setItemsError(String(e));
         setItemsLoading(false);
       });
-  }, [validTab]);
+  }, [validRegion, validTab]);
 
-  if (!validTab) {
+  if (!validRegion || !validTab) {
     return (
       <div className="min-h-screen bg-tint-50 flex items-center justify-center px-4">
         <p className="text-muted text-sm">잘못된 접근입니다.</p>
@@ -63,7 +65,7 @@ function FormContent() {
     const res = await fetch("/api/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tab: validTab, 지출일자, 항목, 금액: 금액.trim(), 비고, imageUrl: imageUrl || undefined }),
+      body: JSON.stringify({ region: validRegion, tab: validTab, 지출일자, 항목, 금액: 금액.trim(), 비고, imageUrl: imageUrl || undefined }),
     });
     const data = await res.json();
     setSaving(false);
@@ -90,7 +92,7 @@ function FormContent() {
             ←
           </button>
           <span className="bg-primary text-primary-700 font-bold text-xs px-2.25 py-0.75 rounded-md">
-            {validTab}
+            {validRegion} · {validTab}
           </span>
           <h2 className="text-[17px] font-bold text-ink m-0">내용 입력</h2>
         </div>

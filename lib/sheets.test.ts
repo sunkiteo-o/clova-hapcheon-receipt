@@ -61,38 +61,38 @@ beforeEach(() => {
 // ── getItemList ──────────────────────────────────────────────────────────────
 
 describe("getItemList", () => {
-  it("returns non-empty strings from B column", async () => {
+  it("returns non-empty strings from sheet column", async () => {
     mockSheetsGetValues.mockResolvedValue([["항목1"], ["항목2"], ["항목3"]]);
-    const result = await getItemList("일반");
+    const result = await getItemList("하동");
     expect(result).toEqual(["항목1", "항목2", "항목3"]);
   });
 
   it("filters out empty strings", async () => {
     mockSheetsGetValues.mockResolvedValue([["항목A"], [""], ["항목B"], []]);
-    const result = await getItemList("일반");
+    const result = await getItemList("하동");
     expect(result).toEqual(["항목A", "항목B"]);
   });
 
   it("returns empty array when all rows are empty", async () => {
     mockSheetsGetValues.mockResolvedValue([[""], [], [""]]);
-    const result = await getItemList("취사");
+    const result = await getItemList("합천");
     expect(result).toEqual([]);
   });
 
   it("returns empty array when sheetsGetValues returns no rows", async () => {
     mockSheetsGetValues.mockResolvedValue([]);
-    const result = await getItemList("일반");
+    const result = await getItemList("하동");
     expect(result).toEqual([]);
   });
 
   it("throws when SHEET_ID_JANGBU env var is missing", async () => {
     delete process.env.SHEET_ID_JANGBU;
-    await expect(getItemList("일반")).rejects.toThrow("SHEET_ID_JANGBU 환경변수 누락");
+    await expect(getItemList("하동")).rejects.toThrow("SHEET_ID_JANGBU 환경변수 누락");
   });
 
-  it("calls sheetsGetValues with the items tab and correct range", async () => {
+  it("calls sheetsGetValues with B column range for 하동", async () => {
     mockSheetsGetValues.mockResolvedValue([]);
-    await getItemList("일반");
+    await getItemList("하동");
     expect(mockSheetsGetValues).toHaveBeenCalledWith(
       MOCK_TOKEN,
       MOCK_JANGBU_ID,
@@ -100,22 +100,42 @@ describe("getItemList", () => {
     );
   });
 
+  it("calls sheetsGetValues with C column range for 합천", async () => {
+    mockSheetsGetValues.mockResolvedValue([]);
+    await getItemList("합천");
+    expect(mockSheetsGetValues).toHaveBeenCalledWith(
+      MOCK_TOKEN,
+      MOCK_JANGBU_ID,
+      expect.stringContaining("C3:C"),
+    );
+  });
+
+  it("calls sheetsGetValues with D column range for 영동", async () => {
+    mockSheetsGetValues.mockResolvedValue([]);
+    await getItemList("영동");
+    expect(mockSheetsGetValues).toHaveBeenCalledWith(
+      MOCK_TOKEN,
+      MOCK_JANGBU_ID,
+      expect.stringContaining("D3:D"),
+    );
+  });
+
   it("calls getToken", async () => {
     mockSheetsGetValues.mockResolvedValue([]);
-    await getItemList("취사");
+    await getItemList("하동");
     expect(mockGetToken).toHaveBeenCalledTimes(1);
   });
 
   it("preserves whitespace/special chars in item names (no trimming)", async () => {
     mockSheetsGetValues.mockResolvedValue([["답사비(교통비)"], [" 식재료 "]]);
-    const result = await getItemList("일반");
+    const result = await getItemList("하동");
     expect(result).toEqual(["답사비(교통비)", " 식재료 "]);
   });
 });
 
 // ── saveRecord ──────────────────────────────────────────────────────────────
 
-describe("saveRecord - 일반 tab", () => {
+describe("saveRecord - 일반 category", () => {
   const 일반Data = {
     지출일자: "2025-06-15",
     항목: "답사비",
@@ -129,12 +149,12 @@ describe("saveRecord - 일반 tab", () => {
   });
 
   it("returns no=1 when sheet is empty", async () => {
-    const result = await saveRecord("일반", 일반Data);
+    const result = await saveRecord("하동", "일반", 일반Data);
     expect(result.no).toBe(1);
   });
 
   it("calls sheetsUpdateValues with correct data including DEFAULT_STATUS", async () => {
-    await saveRecord("일반", 일반Data);
+    await saveRecord("하동", "일반", 일반Data);
     expect(mockSheetsUpdateValues).toHaveBeenCalledWith(
       MOCK_TOKEN,
       MOCK_JANGBU_ID,
@@ -146,14 +166,14 @@ describe("saveRecord - 일반 tab", () => {
   });
 
   it("uses 대기 as status", async () => {
-    await saveRecord("일반", 일반Data);
+    await saveRecord("하동", "일반", 일반Data);
     const call = mockSheetsUpdateValues.mock.calls[0];
     const values = call[3] as unknown[][];
     expect(values[0]).toContain("대기");
   });
 
   it("calls sheetsGetMeta for the jeungbing sheet", async () => {
-    await saveRecord("일반", 일반Data);
+    await saveRecord("하동", "일반", 일반Data);
     expect(mockSheetsGetMeta).toHaveBeenCalledWith(
       MOCK_TOKEN,
       MOCK_JEUNGBING_ID,
@@ -162,12 +182,31 @@ describe("saveRecord - 일반 tab", () => {
   });
 
   it("calls sheetsBatchUpdateValues for jeungbing", async () => {
-    await saveRecord("일반", 일반Data);
+    await saveRecord("하동", "일반", 일반Data);
     expect(mockSheetsBatchUpdateValues).toHaveBeenCalled();
+  });
+
+  it("uses correct jangbu tab name (region(category))", async () => {
+    await saveRecord("합천", "일반", 일반Data);
+    expect(mockSheetsUpdateValues).toHaveBeenCalledWith(
+      MOCK_TOKEN,
+      MOCK_JANGBU_ID,
+      expect.stringContaining("합천(일반)"),
+      expect.anything(),
+    );
+  });
+
+  it("uses correct jeungbing tab name (region(category))", async () => {
+    await saveRecord("영동", "일반", 일반Data);
+    expect(mockSheetsGetMeta).toHaveBeenCalledWith(
+      MOCK_TOKEN,
+      MOCK_JEUNGBING_ID,
+      "영동(일반)",
+    );
   });
 });
 
-describe("saveRecord - 취사 tab", () => {
+describe("saveRecord - 취사 category", () => {
   const 취사Data = {
     지출일자: "2025-06-20",
     금액: 15000,
@@ -179,12 +218,12 @@ describe("saveRecord - 취사 tab", () => {
   });
 
   it("returns no=1 when sheet is empty", async () => {
-    const result = await saveRecord("취사", 취사Data);
+    const result = await saveRecord("하동", "취사", 취사Data);
     expect(result.no).toBe(1);
   });
 
   it("writes values without 항목 column for 취사", async () => {
-    await saveRecord("취사", 취사Data);
+    await saveRecord("하동", "취사", 취사Data);
     expect(mockSheetsUpdateValues).toHaveBeenCalledWith(
       MOCK_TOKEN,
       MOCK_JANGBU_ID,
@@ -196,7 +235,7 @@ describe("saveRecord - 취사 tab", () => {
   });
 
   it("jeungbing uses 취사비 when 항목 is undefined", async () => {
-    await saveRecord("취사", 취사Data);
+    await saveRecord("하동", "취사", 취사Data);
     // sheetsBatchUpdateValues should be called with 취사비 as item name
     const batchCalls = mockSheetsBatchUpdateValues.mock.calls;
     expect(batchCalls.length).toBeGreaterThan(0);
@@ -216,7 +255,7 @@ describe("saveRecord - no calculation", () => {
       ["2", "2025-01-02"],
       ["3", "2025-01-03"],
     ]);
-    const result = await saveRecord("일반", {
+    const result = await saveRecord("하동", "일반", {
       지출일자: "2025-01-04",
       항목: "식재료",
       금액: 5000,
@@ -230,7 +269,7 @@ describe("saveRecord - no calculation", () => {
       ["1", ""],
       ["2", ""],
     ]);
-    const result = await saveRecord("일반", {
+    const result = await saveRecord("하동", "일반", {
       지출일자: "2025-01-01",
       항목: "항목A",
       금액: 1000,
@@ -245,7 +284,7 @@ describe("saveRecord - no calculation", () => {
       ["10", "2025-01-02"],
       ["3", "2025-01-03"],
     ]);
-    const result = await saveRecord("일반", {
+    const result = await saveRecord("하동", "일반", {
       지출일자: "2025-01-04",
       항목: "항목",
       금액: 1000,
@@ -259,7 +298,7 @@ describe("saveRecord - error cases", () => {
   it("throws when SHEET_ID_JANGBU is missing", async () => {
     delete process.env.SHEET_ID_JANGBU;
     await expect(
-      saveRecord("일반", { 지출일자: "2025-01-01", 항목: "항목", 금액: 1000, 비고: "" }),
+      saveRecord("하동", "일반", { 지출일자: "2025-01-01", 항목: "항목", 금액: 1000, 비고: "" }),
     ).rejects.toThrow("SHEET_ID_JANGBU 환경변수 누락");
   });
 
@@ -267,20 +306,19 @@ describe("saveRecord - error cases", () => {
     delete process.env.SHEET_ID_JEUNGBING;
     mockSheetsGetValues.mockResolvedValue([]);
     await expect(
-      saveRecord("일반", { 지출일자: "2025-01-01", 항목: "항목", 금액: 1000, 비고: "" }),
+      saveRecord("하동", "일반", { 지출일자: "2025-01-01", 항목: "항목", 금액: 1000, 비고: "" }),
     ).rejects.toThrow("SHEET_ID_JEUNGBING 환경변수 누락");
   });
 
   it("throws with informative message when sheet is full (writeRow > max)", async () => {
     // JANGBU_DATA_START_ROW=3, JANGBU_DATA_MAX_ROW=134 → max data rows = 132
-    // Fill up 132 rows (indices 0..131)
     const rows: string[][] = Array.from({ length: 132 }, (_, i) => [
       String(i + 1),
       `2025-01-${String(i + 1).padStart(2, "0")}`,
     ]);
     mockSheetsGetValues.mockResolvedValue(rows);
     await expect(
-      saveRecord("일반", { 지출일자: "2025-06-01", 항목: "항목", 금액: 1000, 비고: "" }),
+      saveRecord("하동", "일반", { 지출일자: "2025-06-01", 항목: "항목", 금액: 1000, 비고: "" }),
     ).rejects.toThrow("장부 시트가 꽉 찼습니다");
   });
 
@@ -288,7 +326,7 @@ describe("saveRecord - error cases", () => {
     mockSheetsGetValues.mockResolvedValue([]);
     mockSheetsGetMeta.mockRejectedValue(new Error("네트워크 오류"));
     await expect(
-      saveRecord("일반", { 지출일자: "2025-01-01", 항목: "항목", 금액: 1000, 비고: "" }),
+      saveRecord("하동", "일반", { 지출일자: "2025-01-01", 항목: "항목", 금액: 1000, 비고: "" }),
     ).rejects.toThrow("장부 기록 완료");
   });
 
@@ -296,7 +334,7 @@ describe("saveRecord - error cases", () => {
     mockSheetsGetValues.mockResolvedValue([]);
     mockSheetsGetMeta.mockRejectedValue("plain string error");
     await expect(
-      saveRecord("일반", { 지출일자: "2025-01-01", 항목: "항목", 금액: 1000, 비고: "" }),
+      saveRecord("하동", "일반", { 지출일자: "2025-01-01", 항목: "항목", 금액: 1000, 비고: "" }),
     ).rejects.toThrow("plain string error");
   });
 });
@@ -307,7 +345,7 @@ describe("saveRecord - jeungbing block position", () => {
     const rows = Array.from({ length: no - 1 }, (_, i) => [String(i + 1), `2025-01-01`]);
     mockSheetsGetValues.mockResolvedValue(rows);
 
-    await saveRecord("일반", { 지출일자: "2025-01-01", 항목: "항목", 금액: 1000, 비고: "" });
+    await saveRecord("하동", "일반", { 지출일자: "2025-01-01", 항목: "항목", 금액: 1000, 비고: "" });
     return mockSheetsBatchUpdateValues.mock.calls.flatMap((c) => c[2]).map((e) => e.range);
   }
 
@@ -322,16 +360,13 @@ describe("saveRecord - jeungbing block position", () => {
   });
 
   it("no=1 goes into block 0 (first column group)", async () => {
-    // no=1 → blockIndex=0, blockGroup=0, rowStart=1, colBunho=0 (A), colData1=1 (B), colData2=2 (C)
     const ranges = await captureJeungbingRanges(1);
-    // All ranges should reference row 2 (rowStart+1=1, a1 row = rowStart+1 = 2) or row 1
     expect(ranges.some((r) => r.includes("A"))).toBe(true);
   });
 
   it("no=6 starts a new block group (second pair of rows)", async () => {
-    // no=6 → blockIndex=0, blockGroup=1, rowStart=1+1*2=3
+    // blockGroup=1, rowStart=1+1*3=4 (0-indexed) → a1 row = rowStart+1 = 5
     const ranges = await captureJeungbingRanges(6);
-    // rowStart=3, col=A → range should reference row 4 (3+1)
-    expect(ranges.some((r) => r.includes("A4"))).toBe(true);
+    expect(ranges.some((r) => r.includes("A5"))).toBe(true);
   });
 });

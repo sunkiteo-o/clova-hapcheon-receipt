@@ -7,15 +7,15 @@ import {
   sheetsGetMeta,
 } from "./gapi";
 import {
-  TabType,
-  RegionType,
-  JANGBU_TABS,
-  JEUNGBING_TABS,
+  Region,
+  Category,
+  jangbuTab,
+  jeungbingTab,
   DEFAULT_STATUS,
   JANGBU_DATA_START_ROW,
   JANGBU_DATA_MAX_ROW,
   JANGBU_LAYOUT,
-  ITEMS_COL,
+  ITEM_COL,
 } from "./config";
 
 // ──────────────────────────────────────────────
@@ -25,12 +25,12 @@ import {
 const ITEMS_TAB = "회계를 부탁해-세부항목 리스트";
 
 // 1행=공지, 2행=지역헤더(B=하동, C=합천, D=영동), 3행~=항목
-export async function getItemList(_tabType: TabType, region: RegionType = "하동"): Promise<string[]> {
+export async function getItemList(region: Region): Promise<string[]> {
   const token = await getToken();
   const sheetId = process.env.SHEET_ID_JANGBU;
   if (!sheetId) throw new Error("SHEET_ID_JANGBU 환경변수 누락");
 
-  const col = ITEMS_COL[region];
+  const col = ITEM_COL[region];
   const rows = await sheetsGetValues(token, sheetId, `'${ITEMS_TAB}'!${col}3:${col}`);
 
   // 빈 셀만 제외. 값 가공 금지 — 공백·괄호 바꾸면 SUMIF 매칭 깨짐.
@@ -49,7 +49,8 @@ export interface RecordData {
 }
 
 export async function saveRecord(
-  tabType: TabType,
+  region: Region,
+  category: Category,
   data: RecordData,
   imageUrl?: string,
 ): Promise<{ no: number }> {
@@ -60,16 +61,16 @@ export async function saveRecord(
   if (!jangbuId) throw new Error("SHEET_ID_JANGBU 환경변수 누락");
   if (!jeungbingId) throw new Error("SHEET_ID_JEUNGBING 환경변수 누락");
 
-  const jangbuTab = JANGBU_TABS[tabType];
-  const jeungbingTab = JEUNGBING_TABS[tabType];
+  const jTab = jangbuTab(region, category);
+  const jbTab = jeungbingTab(region, category);
 
-  const layout = JANGBU_LAYOUT[tabType];
+  const layout = JANGBU_LAYOUT[category];
 
   // ── 1. 장부: 다음 No. 계산 ──
   // No.열은 템플릿으로 미리 채워진 경우가 있으므로 지출일자 열로 실제 데이터 행 판별
   const ndRows = await sheetsGetValues(
     token, jangbuId,
-    `'${jangbuTab}'!${layout.noCol}${JANGBU_DATA_START_ROW}:${layout.dateCol}${JANGBU_DATA_MAX_ROW}`,
+    `'${jTab}'!${layout.noCol}${JANGBU_DATA_START_ROW}:${layout.dateCol}${JANGBU_DATA_MAX_ROW}`,
   );
 
   // 지출일자(index 1)가 채워진 행 = 실제 데이터
@@ -94,19 +95,19 @@ export async function saveRecord(
   // ── 2. 장부 기록 ──
   // 일반: F~K = [No., 지출일자, 항목, 금액, 비고, 상태]
   // 취사: H~L = [No., 지출일자, 금액, 비고, 상태]  (항목 열 없음)
-  const writeValues = tabType === "일반"
+  const writeValues = category === "일반"
     ? [no, data.지출일자, data.항목 ?? "", data.금액, data.비고, DEFAULT_STATUS]
     : [no, data.지출일자, data.금액, data.비고, DEFAULT_STATUS];
   await sheetsUpdateValues(
     token,
     jangbuId,
-    `'${jangbuTab}'!${layout.writeStart}${writeRow}:${layout.writeEnd}${writeRow}`,
+    `'${jTab}'!${layout.writeStart}${writeRow}:${layout.writeEnd}${writeRow}`,
     [writeValues],
   );
 
   // ── 3. 증빙 기록 ──
   try {
-    await writeJeungbing(token, jeungbingId, jeungbingTab, no, data, imageUrl);
+    await writeJeungbing(token, jeungbingId, jbTab, no, data, imageUrl);
   } catch (e) {
     // 장부는 성공, 증빙만 실패 — 부분 실패 메시지 포함해 throw
     throw new Error(

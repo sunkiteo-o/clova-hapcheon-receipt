@@ -1,21 +1,33 @@
 import { describe, it, expect } from "vitest";
 import {
-  TAB_TYPES,
+  CATEGORIES,
+  REGIONS,
   HEADERS,
   DEFAULT_STATUS,
-  JANGBU_TABS,
-  JEUNGBING_TABS,
   JANGBU_DATA_START_ROW,
   JANGBU_DATA_MAX_ROW,
   JANGBU_LAYOUT,
-  isValidTabType,
+  ITEM_COL,
+  jangbuTab,
+  jeungbingTab,
+  isValidCategory,
+  isValidRegion,
 } from "./config";
 
-describe("TAB_TYPES", () => {
+describe("CATEGORIES", () => {
   it("contains exactly 일반 and 취사", () => {
-    expect(TAB_TYPES).toContain("일반");
-    expect(TAB_TYPES).toContain("취사");
-    expect(TAB_TYPES).toHaveLength(2);
+    expect(CATEGORIES).toContain("일반");
+    expect(CATEGORIES).toContain("취사");
+    expect(CATEGORIES).toHaveLength(2);
+  });
+});
+
+describe("REGIONS", () => {
+  it("contains 합천, 하동, 영동", () => {
+    expect(REGIONS).toContain("합천");
+    expect(REGIONS).toContain("하동");
+    expect(REGIONS).toContain("영동");
+    expect(REGIONS).toHaveLength(3);
   });
 });
 
@@ -36,34 +48,36 @@ describe("DEFAULT_STATUS", () => {
   });
 });
 
-describe("JANGBU_TABS", () => {
-  it("has entries for both tab types", () => {
-    expect(JANGBU_TABS["일반"]).toBeTruthy();
-    expect(JANGBU_TABS["취사"]).toBeTruthy();
+describe("jangbuTab", () => {
+  it("returns region(category) string", () => {
+    expect(jangbuTab("하동", "일반")).toBe("하동(일반)");
+    expect(jangbuTab("합천", "취사")).toBe("합천(취사)");
+    expect(jangbuTab("영동", "일반")).toBe("영동(일반)");
   });
 
-  it("일반 tab maps to expected sheet name", () => {
-    expect(JANGBU_TABS["일반"]).toContain("일반");
-  });
-
-  it("취사 tab maps to expected sheet name", () => {
-    expect(JANGBU_TABS["취사"]).toContain("취사");
+  it("contains region and category in result", () => {
+    expect(jangbuTab("하동", "일반")).toContain("하동");
+    expect(jangbuTab("하동", "일반")).toContain("일반");
   });
 });
 
-describe("JEUNGBING_TABS", () => {
-  it("has entries for both tab types", () => {
-    expect(JEUNGBING_TABS["일반"]).toBeTruthy();
-    expect(JEUNGBING_TABS["취사"]).toBeTruthy();
+describe("jeungbingTab", () => {
+  it("returns same region(category) string as jangbuTab", () => {
+    expect(jeungbingTab("하동", "일반")).toBe("하동(일반)");
+    expect(jeungbingTab("합천", "취사")).toBe("합천(취사)");
+    expect(jeungbingTab("영동", "일반")).toBe("영동(일반)");
   });
 
-  it("일반 tab maps to expected jeungbing sheet name", () => {
-    expect(JEUNGBING_TABS["일반"]).toContain("일반");
+  it("장부 탭과 이름 동일", () => {
+    expect(jeungbingTab("하동", "일반")).toBe(jangbuTab("하동", "일반"));
+    expect(jeungbingTab("합천", "취사")).toBe(jangbuTab("합천", "취사"));
   });
+});
 
-  it("취사 tab maps to expected jeungbing sheet name", () => {
-    expect(JEUNGBING_TABS["취사"]).toContain("취사");
-  });
+describe("ITEM_COL", () => {
+  it("maps 하동 to B", () => expect(ITEM_COL["하동"]).toBe("B"));
+  it("maps 합천 to C", () => expect(ITEM_COL["합천"]).toBe("C"));
+  it("maps 영동 to D", () => expect(ITEM_COL["영동"]).toBe("D"));
 });
 
 describe("JANGBU_DATA_START_ROW", () => {
@@ -110,46 +124,32 @@ describe("JANGBU_LAYOUT", () => {
   });
 });
 
-describe("isValidTabType", () => {
-  it("returns true for 일반", () => {
-    expect(isValidTabType("일반")).toBe(true);
+describe("isValidCategory", () => {
+  it("returns true for 일반", () => expect(isValidCategory("일반")).toBe(true));
+  it("returns true for 취사", () => expect(isValidCategory("취사")).toBe(true));
+  it("returns false for empty string", () => expect(isValidCategory("")).toBe(false));
+  it("returns false for null", () => expect(isValidCategory(null)).toBe(false));
+  it("returns false for undefined", () => expect(isValidCategory(undefined)).toBe(false));
+  it("returns false for arbitrary string", () => expect(isValidCategory("취사팀")).toBe(false));
+  it("returns false for a number", () => expect(isValidCategory(42)).toBe(false));
+  it("returns false for boolean", () => expect(isValidCategory(true)).toBe(false));
+  it("acts as type guard for all valid values", () => {
+    for (const c of CATEGORIES) {
+      expect(isValidCategory(c)).toBe(true);
+    }
   });
+});
 
-  it("returns true for 취사", () => {
-    expect(isValidTabType("취사")).toBe(true);
-  });
-
-  it("returns false for empty string", () => {
-    expect(isValidTabType("")).toBe(false);
-  });
-
-  it("returns false for null", () => {
-    expect(isValidTabType(null)).toBe(false);
-  });
-
-  it("returns false for undefined", () => {
-    expect(isValidTabType(undefined)).toBe(false);
-  });
-
-  it("returns false for an arbitrary string", () => {
-    expect(isValidTabType("취사팀")).toBe(false);
-  });
-
-  it("returns false for a number", () => {
-    expect(isValidTabType(42)).toBe(false);
-  });
-
-  it("returns false for an object", () => {
-    expect(isValidTabType({})).toBe(false);
-  });
-
-  it("returns false for boolean true", () => {
-    expect(isValidTabType(true)).toBe(false);
-  });
-
-  it("acts as a type guard (both valid values)", () => {
-    for (const tab of TAB_TYPES) {
-      expect(isValidTabType(tab)).toBe(true);
+describe("isValidRegion", () => {
+  it("returns true for 합천", () => expect(isValidRegion("합천")).toBe(true));
+  it("returns true for 하동", () => expect(isValidRegion("하동")).toBe(true));
+  it("returns true for 영동", () => expect(isValidRegion("영동")).toBe(true));
+  it("returns false for empty string", () => expect(isValidRegion("")).toBe(false));
+  it("returns false for null", () => expect(isValidRegion(null)).toBe(false));
+  it("returns false for arbitrary string", () => expect(isValidRegion("서울")).toBe(false));
+  it("acts as type guard for all valid values", () => {
+    for (const r of REGIONS) {
+      expect(isValidRegion(r)).toBe(true);
     }
   });
 });

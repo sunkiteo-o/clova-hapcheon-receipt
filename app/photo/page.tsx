@@ -1,11 +1,12 @@
 "use client";
 import { Suspense, useState, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { isValidTabType } from "@/lib/config";
+import { isValidRegion, isValidCategory } from "@/lib/config";
 
 function PhotoContent() {
   const params = useSearchParams();
   const router = useRouter();
+  const region = params.get("region") ?? "";
   const tab = params.get("tab") ?? "";
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -14,7 +15,7 @@ function PhotoContent() {
   const [uploading, setUploading] = useState(false);
   const [errMsg, setErrMsg] = useState("");
 
-  if (!isValidTabType(tab)) {
+  if (!isValidRegion(region) || !isValidCategory(tab)) {
     return (
       <div className="min-h-screen bg-tint-50 flex items-center justify-center px-4">
         <p className="text-muted text-sm">잘못된 접근입니다.</p>
@@ -40,7 +41,7 @@ function PhotoContent() {
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "업로드 실패");
-      const qs = new URLSearchParams({ tab, imageUrl: data.url });
+      const qs = new URLSearchParams({ region, tab, imageUrl: data.url });
       router.push(`/form?${qs.toString()}`);
     } catch (e) {
       setErrMsg(e instanceof Error ? e.message : "업로드 실패");
@@ -49,7 +50,7 @@ function PhotoContent() {
   }
 
   function handleSkip() {
-    router.push(`/form?tab=${encodeURIComponent(tab)}`);
+    router.push(`/form?region=${encodeURIComponent(region)}&tab=${encodeURIComponent(tab)}`);
   }
 
   return (
@@ -66,7 +67,7 @@ function PhotoContent() {
             ←
           </button>
           <span className="bg-primary text-primary-700 font-bold text-xs px-2.25 py-0.75 rounded-md">
-            {tab}
+            {region} · {tab}
           </span>
           <h2 className="text-[17px] font-bold text-ink m-0">영수증 사진</h2>
         </div>

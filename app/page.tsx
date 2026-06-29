@@ -1,18 +1,25 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { TAB_TYPES, TabType } from "@/lib/config";
+import { REGIONS, Region, CATEGORIES, Category } from "@/lib/config";
 
 const JANGBU_URL = process.env.NEXT_PUBLIC_JANGBU_URL;
 const JEUNGBING_URL = process.env.NEXT_PUBLIC_JEUNGBING_URL;
 
 export default function Page() {
   const router = useRouter();
-  const [tab, setTab] = useState<TabType | null>(null);
+  const [region, setRegion] = useState<Region | null>(null);
+  const [category, setCategory] = useState<Category | null>(null);
 
-  function handleTabSelect(t: TabType) {
-    setTab(t);
-    router.push(`/photo?tab=${encodeURIComponent(t)}`);
+  function handleRegionSelect(r: Region) {
+    setRegion(r);
+    setCategory(null);
+  }
+
+  function handleCategorySelect(c: Category) {
+    if (!region) return;
+    setCategory(c);
+    router.push(`/photo?region=${encodeURIComponent(region)}&tab=${encodeURIComponent(c)}`);
   }
 
   return (
@@ -40,25 +47,47 @@ export default function Page() {
           </div>
         </div>
 
-        {/* 구분 선택 */}
-        <section>
-          <p className="text-xs font-semibold text-muted mb-2">구분 선택</p>
+        {/* 지역 선택 */}
+        <section className="mb-6">
+          <p className="text-xs font-semibold text-muted mb-2">지역 선택</p>
           <div className="flex gap-2.5">
-            {TAB_TYPES.map((t) => (
+            {REGIONS.map((r) => (
               <button
-                key={t}
-                onClick={() => handleTabSelect(t)}
+                key={r}
+                onClick={() => handleRegionSelect(r)}
                 className={`flex-1 py-3.5 rounded-[10px] border-[1.5px] text-base cursor-pointer transition-colors ${
-                  tab === t
+                  region === r
                     ? "border-primary-600 bg-primary text-primary-700 font-bold"
                     : "border-border-200 bg-bg text-ink font-normal"
                 }`}
               >
-                {t}
+                {r}
               </button>
             ))}
           </div>
         </section>
+
+        {/* 구분 선택 — 지역 선택 후 표시 */}
+        {region && (
+          <section>
+            <p className="text-xs font-semibold text-muted mb-2">구분 선택</p>
+            <div className="flex gap-2.5">
+              {CATEGORIES.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => handleCategorySelect(c)}
+                  className={`flex-1 py-3.5 rounded-[10px] border-[1.5px] text-base cursor-pointer transition-colors ${
+                    category === c
+                      ? "border-primary-600 bg-primary text-primary-700 font-bold"
+                      : "border-border-200 bg-bg text-ink font-normal"
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
       </div>
     </div>
