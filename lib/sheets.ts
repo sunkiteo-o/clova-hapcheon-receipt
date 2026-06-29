@@ -132,13 +132,13 @@ async function writeJeungbing(
   // 블록 위치 계산
   const blockIndex = (no - 1) % 5;
   const blockGroup = Math.floor((no - 1) / 5);
-  const rowStart = 1 + blockGroup * 2; // 0-indexed, row 0 = 제목란(skip)
+  const rowStart = 1 + blockGroup * 3; // 0-indexed, row 0 = 제목란(skip), 블록당 3행
   const colBunho = blockIndex * 3;
   const colData1 = blockIndex * 3 + 1;
   const colData2 = blockIndex * 3 + 2;
 
   // ── 행/열 부족 시 자동 확장 ──
-  const requiredRows = rowStart + 2;
+  const requiredRows = rowStart + 3;
   const requiredCols = colData2 + 1;
   const expandRequests: unknown[] = [];
   if (requiredRows > meta.rowCount)
@@ -150,14 +150,17 @@ async function writeJeungbing(
 
   // ── 원하는 병합 범위 정의 ──
   // 블록 구조 (스프레드시트 기준, rowStart=0-indexed):
-  //   rowStart+0: [A=번호↕] B=항목  C=금액
-  //   rowStart+1: [A=번호↕] B:C merged = 비고
+  //   rowStart+0: [A=번호↕2] B=항목  C=금액
+  //   rowStart+1: [A=번호↕2] B:C merged = 비고
+  //   rowStart+2: A:C merged = 이미지 (=IMAGE() 수식)
   type GRange = { startRowIndex: number; endRowIndex: number; startColumnIndex: number; endColumnIndex: number };
   const desired: GRange[] = [
-    // 번호 세로 병합: A rowStart:rowStart+1
+    // 번호 세로 병합: A rowStart ~ rowStart+1 (endRowIndex exclusive → rowStart+2)
     { startRowIndex: rowStart, endRowIndex: rowStart + 2, startColumnIndex: colBunho, endColumnIndex: colBunho + 1 },
     // 비고 가로 병합: B:C rowStart+1
     { startRowIndex: rowStart + 1, endRowIndex: rowStart + 2, startColumnIndex: colData1, endColumnIndex: colData2 + 1 },
+    // 이미지 가로 병합: A:C rowStart+2
+    { startRowIndex: rowStart + 2, endRowIndex: rowStart + 3, startColumnIndex: colBunho, endColumnIndex: colData2 + 1 },
   ];
 
   const overlaps = (a: GRange, b: GRange) =>
