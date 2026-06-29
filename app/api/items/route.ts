@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
-import { isValidRegion } from "@/lib/config";
+import { NextResponse } from "next/server";
+import { getRegionFromCookies } from "@/lib/auth";
 import { getItemList } from "@/lib/sheets";
 
-export async function GET(req: NextRequest) {
-  const region = req.nextUrl.searchParams.get("region");
-  if (!isValidRegion(region)) {
-    return NextResponse.json({ error: "region 파라미터 필요 (합천, 하동, 영동 중 하나)" }, { status: 400 });
+export async function GET() {
+  const region = await getRegionFromCookies();
+  if (!region) {
+    return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   }
   try {
     const items = await getItemList(region);

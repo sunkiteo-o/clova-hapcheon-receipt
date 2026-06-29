@@ -5,15 +5,16 @@ vi.mock("@/lib/sheets", () => ({
   saveRecord: vi.fn(),
 }));
 
-vi.mock("@/lib/config", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/config")>();
-  return { ...actual };
-});
+vi.mock("@/lib/auth", () => ({
+  getRegionFromCookies: vi.fn(),
+}));
 
 import { POST } from "./route";
 import { saveRecord } from "@/lib/sheets";
+import { getRegionFromCookies } from "@/lib/auth";
 
 const mockSaveRecord = vi.mocked(saveRecord);
+const mockGetRegion = vi.mocked(getRegionFromCookies);
 
 function makeRequest(body: Record<string, unknown>): NextRequest {
   return new NextRequest("http://localhost/api/save", {
@@ -23,39 +24,27 @@ function makeRequest(body: Record<string, unknown>): NextRequest {
   });
 }
 
-// Default valid base body (region+tab+required fields)
-const BASE = { region: "하동", tab: "일반", 지출일자: "2025-06-01", 항목: "답사비", 금액: 5000 };
+// Default valid body (no region — comes from cookie)
+const BASE = { tab: "일반", 지출일자: "2025-06-01", 항목: "답사비", 금액: 5000 };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetRegion.mockResolvedValue("하동");
 });
 
 describe("POST /api/save", () => {
-  describe("region validation", () => {
-    it("returns 400 when region is missing", async () => {
-      const req = makeRequest({ tab: "일반", 지출일자: "2025-06-01", 항목: "답사비", 금액: 5000 });
+  describe("auth", () => {
+    it("returns 401 when region cookie is missing", async () => {
+      mockGetRegion.mockResolvedValue(null);
+      const req = makeRequest(BASE);
       const res = await POST(req);
-      expect(res.status).toBe(400);
-      const body = await res.json();
-      expect(body.error).toMatch(/region/);
-    });
-
-    it("returns 400 when region is invalid string", async () => {
-      const req = makeRequest({ ...BASE, region: "서울" });
-      const res = await POST(req);
-      expect(res.status).toBe(400);
-    });
-
-    it("returns 400 when region is null", async () => {
-      const req = makeRequest({ ...BASE, region: null });
-      const res = await POST(req);
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(401);
     });
   });
 
   describe("tab validation", () => {
     it("returns 400 when tab is missing", async () => {
-      const req = makeRequest({ region: "하동", 지출일자: "2025-06-01", 항목: "답사비", 금액: 5000 });
+      const req = makeRequest({ 지출일자: "2025-06-01", 항목: "답사비", 금액: 5000 });
       const res = await POST(req);
       expect(res.status).toBe(400);
       const body = await res.json();
@@ -85,13 +74,13 @@ describe("POST /api/save", () => {
     });
 
     it("returns 400 when 금액 is missing", async () => {
-      const req = makeRequest({ region: "하동", tab: "일반", 지출일자: "2025-06-01", 항목: "답사비" });
+      const req = makeRequest({ tab: "일반", 지출일자: "2025-06-01", 항목: "답사비" });
       const res = await POST(req);
       expect(res.status).toBe(400);
     });
 
     it("returns 400 when both 지출일자 and 금액 are missing", async () => {
-      const req = makeRequest({ region: "하동", tab: "일반", 항목: "답사비" });
+      const req = makeRequest({ tab: "일반", 항목: "답사비" });
       const res = await POST(req);
       expect(res.status).toBe(400);
     });
@@ -99,7 +88,7 @@ describe("POST /api/save", () => {
 
   describe("일반 tab 항목 validation", () => {
     it("returns 400 when tab is 일반 and 항목 is missing", async () => {
-      const req = makeRequest({ region: "하동", tab: "일반", 지출일자: "2025-06-01", 금액: 5000 });
+      const req = makeRequest({ tab: "일반", 지출일자: "2025-06-01", 금액: 5000 });
       const res = await POST(req);
       expect(res.status).toBe(400);
       const body = await res.json();
@@ -107,14 +96,14 @@ describe("POST /api/save", () => {
     });
 
     it("returns 400 when tab is 일반 and 항목 is empty string", async () => {
-      const req = makeRequest({ region: "하동", tab: "일반", 지출일자: "2025-06-01", 금액: 5000, 항목: "" });
+      const req = makeRequest({ tab: "일반", 지출일자: "2025-06-01", 금액: 5000, 항목: "" });
       const res = await POST(req);
       expect(res.status).toBe(400);
     });
 
     it("does NOT require 항목 for 취사 tab", async () => {
       mockSaveRecord.mockResolvedValue({ no: 1 });
-      const req = makeRequest({ region: "하동", tab: "취사", 지출일자: "2025-06-01", 금액: 5000 });
+      const req = makeRequest({ tab: "취사", 지출일자: "2025-06-01", 금액: 5000 });
       const res = await POST(req);
       expect(res.status).not.toBe(400);
     });
@@ -193,7 +182,7 @@ describe("POST /api/save", () => {
 
     it("passes 금액 as integer to saveRecord", async () => {
       mockSaveRecord.mockResolvedValue({ no: 2 });
-      const req = makeRequest({ region: "하동", tab: "취사", 지출일자: "2025-06-01", 금액: "5000" });
+      const req = makeRequest({ tab: "취사", 지출일자: "2025-06-01", 금액: "5000" });
       const res = await POST(req);
       expect(res.status).toBe(200);
       expect(mockSaveRecord).toHaveBeenCalledWith(
@@ -206,24 +195,28 @@ describe("POST /api/save", () => {
   });
 
   describe("success responses", () => {
-    it("returns { ok: true, no } on success for 일반", async () => {
+    it("returns { ok: true, no } on success for 일반 — region from cookie", async () => {
+      mockGetRegion.mockResolvedValue("합천");
       mockSaveRecord.mockResolvedValue({ no: 7 });
-      const req = makeRequest({ region: "합천", tab: "일반", 지출일자: "2025-06-01", 항목: "식재료", 금액: 30000 });
+      const req = makeRequest({ tab: "일반", 지출일자: "2025-06-01", 항목: "식재료", 금액: 30000 });
       const res = await POST(req);
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.ok).toBe(true);
       expect(body.no).toBe(7);
+      expect(mockSaveRecord).toHaveBeenCalledWith("합천", "일반", expect.any(Object), undefined);
     });
 
-    it("returns { ok: true, no } on success for 취사", async () => {
+    it("returns { ok: true, no } on success for 취사 — region from cookie", async () => {
+      mockGetRegion.mockResolvedValue("영동");
       mockSaveRecord.mockResolvedValue({ no: 3 });
-      const req = makeRequest({ region: "영동", tab: "취사", 지출일자: "2025-06-05", 금액: 12000, 비고: "메모" });
+      const req = makeRequest({ tab: "취사", 지출일자: "2025-06-05", 금액: 12000, 비고: "메모" });
       const res = await POST(req);
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.ok).toBe(true);
       expect(body.no).toBe(3);
+      expect(mockSaveRecord).toHaveBeenCalledWith("영동", "취사", expect.any(Object), undefined);
     });
 
     it("defaults 비고 to empty string when not provided", async () => {
@@ -240,7 +233,7 @@ describe("POST /api/save", () => {
 
     it("passes 비고 when provided", async () => {
       mockSaveRecord.mockResolvedValue({ no: 1 });
-      const req = makeRequest({ region: "하동", tab: "취사", 지출일자: "2025-06-01", 금액: 5000, 비고: "상호명" });
+      const req = makeRequest({ tab: "취사", 지출일자: "2025-06-01", 금액: 5000, 비고: "상호명" });
       await POST(req);
       expect(mockSaveRecord).toHaveBeenCalledWith(
         "하동",
@@ -248,6 +241,14 @@ describe("POST /api/save", () => {
         expect.objectContaining({ 비고: "상호명" }),
         undefined,
       );
+    });
+
+    it("body region field is ignored — cookie region wins", async () => {
+      mockGetRegion.mockResolvedValue("합천");
+      mockSaveRecord.mockResolvedValue({ no: 1 });
+      const req = makeRequest({ ...BASE, region: "영동" }); // body claims 영동
+      await POST(req);
+      expect(mockSaveRecord).toHaveBeenCalledWith("합천", expect.any(String), expect.any(Object), undefined);
     });
   });
 
@@ -263,7 +264,7 @@ describe("POST /api/save", () => {
 
     it("returns 500 with generic message when saveRecord throws non-Error", async () => {
       mockSaveRecord.mockRejectedValue("raw failure");
-      const req = makeRequest({ region: "하동", tab: "취사", 지출일자: "2025-06-01", 금액: 5000 });
+      const req = makeRequest({ tab: "취사", 지출일자: "2025-06-01", 금액: 5000 });
       const res = await POST(req);
       expect(res.status).toBe(500);
       const body = await res.json();

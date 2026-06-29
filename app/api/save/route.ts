@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidRegion, isValidCategory } from "@/lib/config";
+import { isValidCategory } from "@/lib/config";
 import { saveRecord } from "@/lib/sheets";
+import { getRegionFromCookies } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const { region, tab, 지출일자, 항목, 금액, 비고, imageUrl } = body ?? {};
-
-  if (!isValidRegion(region)) {
-    return NextResponse.json({ error: "region 필드 필요 (합천, 하동, 영동 중 하나)" }, { status: 400 });
+  const region = await getRegionFromCookies();
+  if (!region) {
+    return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   }
+
+  const body = await req.json();
+  const { tab, 지출일자, 항목, 금액, 비고, imageUrl } = body ?? {};
+
   if (!isValidCategory(tab)) {
     return NextResponse.json({ error: "tab 필드 필요 (일반 또는 취사)" }, { status: 400 });
   }
