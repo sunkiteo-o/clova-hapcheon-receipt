@@ -1,6 +1,20 @@
 export const TAB_TYPES = ["일반", "취사"] as const;
 export type TabType = (typeof TAB_TYPES)[number];
 
+export const REGIONS = ["하동", "합천", "영동"] as const;
+export type RegionType = (typeof REGIONS)[number];
+
+// 세부항목 리스트 탭 열 매핑 (B=하동, C=합천, D=영동)
+export const ITEMS_COL: Record<RegionType, string> = {
+  "하동": "B",
+  "합천": "C",
+  "영동": "D",
+};
+
+export function isValidRegion(v: unknown): v is RegionType {
+  return REGIONS.includes(v as RegionType);
+}
+
 export const HEADERS = ["No.", "지출일자", "항목", "금액", "비고", "상태"] as const;
 
 export const DEFAULT_STATUS = "대기";

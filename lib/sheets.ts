@@ -8,12 +8,14 @@ import {
 } from "./gapi";
 import {
   TabType,
+  RegionType,
   JANGBU_TABS,
   JEUNGBING_TABS,
   DEFAULT_STATUS,
   JANGBU_DATA_START_ROW,
   JANGBU_DATA_MAX_ROW,
   JANGBU_LAYOUT,
+  ITEMS_COL,
 } from "./config";
 
 // ──────────────────────────────────────────────
@@ -22,15 +24,14 @@ import {
 
 const ITEMS_TAB = "회계를 부탁해-세부항목 리스트";
 
-// tabType 파라미터는 하동 단일 지역이므로 B열 고정 (B=하동).
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function getItemList(_tabType: TabType): Promise<string[]> {
+// 1행=공지, 2행=지역헤더(B=하동, C=합천, D=영동), 3행~=항목
+export async function getItemList(_tabType: TabType, region: RegionType = "하동"): Promise<string[]> {
   const token = await getToken();
   const sheetId = process.env.SHEET_ID_JANGBU;
   if (!sheetId) throw new Error("SHEET_ID_JANGBU 환경변수 누락");
 
-  // 1행=공지, 2행=지역헤더(B=하동), 3행~=항목. 중간 빈 행 있어도 전체 읽고 필터.
-  const rows = await sheetsGetValues(token, sheetId, `'${ITEMS_TAB}'!B3:B`);
+  const col = ITEMS_COL[region];
+  const rows = await sheetsGetValues(token, sheetId, `'${ITEMS_TAB}'!${col}3:${col}`);
 
   // 빈 셀만 제외. 값 가공 금지 — 공백·괄호 바꾸면 SUMIF 매칭 깨짐.
   return rows.map((r) => r[0] ?? "").filter((v) => v !== "");
