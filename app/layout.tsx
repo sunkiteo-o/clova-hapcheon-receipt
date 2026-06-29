@@ -9,7 +9,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "회계를 부탁해 😎",
-  description: "취사 영수증 OCR 입력 도구",
+  description: "영수증 입력 도구",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

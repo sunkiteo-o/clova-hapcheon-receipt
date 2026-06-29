@@ -1,13 +1,12 @@
 # 회계를 부탁해 😎
 
-영수증을 촬영하면 CLOVA OCR로 날짜·상호·금액을 자동 추출하여 Google Sheets에 저장하는 모바일 웹 앱입니다.
+서울 중앙 교회 그루터기 2026 하기봉사 회계 관리 웹앱.  
+영수증을 촬영하면 Vercel Blob에 저장하고, 장부·증빙 Google Sheets에 자동 기록합니다.
 
 ## 흐름
 
-1. 팀 선택 → 영수증 사진 촬영 → 분석
-2. OCR 결과 확인 및 수동 수정
-3. 항목 입력 후 저장 → 시트에 자동 기록
-
+구분 선택 → 영수증 촬영 → 내용 입력 → 저장  
+→ 장부 시트(지출 기록) + 증빙 시트(이미지 수식) 동시 기록
 
 ## 실행
 
@@ -16,18 +15,29 @@ pnpm install
 pnpm dev
 ```
 
-## Google Sheets 시트 구조
+## 환경 변수 (`.env.local`)
 
-탭별로 아래 헤더가 필요합니다.
+```env
+# Google Sheets
+GOOGLE_SERVICE_ACCOUNT_EMAIL=
+GOOGLE_PRIVATE_KEY=
+SHEET_ID_JANGBU=
+SHEET_ID_JEUNGBING=
 
-| 날짜 | 팀 | 상호 | 항목 | 금액 | 상태 | 입력시간 |
-|------|-----|------|------|------|------|----------|
+# 시트 바로가기 링크
+NEXT_PUBLIC_JANGBU_URL=
+NEXT_PUBLIC_JEUNGBING_URL=
 
-- 취사팀 → `취사` 탭 (또는 `TAB_CHWISA`)
-- 나머지 팀 → `통합` 탭 (또는 `TAB_COMMON`)
+# 로그인
+APP_PASSWORD=
+
+# Vercel Blob
+BLOB_READ_WRITE_TOKEN=
+```
 
 ## 시트 연결 테스트
 
 ```bash
-pnpm test:sheet
+pnpm test:sheet          # 장부 더미 행 추가
+pnpm tsx scripts/test-blob-image.ts  # Blob 업로드 + 이미지 수식 삽입
 ```
