@@ -10,6 +10,7 @@ import { saveRecord } from "../lib/sheets";
 async function main() {
   console.log("→ 일반 탭에 더미 행 추가 시도...");
   const result = await saveRecord(
+    "하동",
     "일반",
     {
       지출일자: "2099-01-01",

@@ -1,14 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
-import { isValidTabType } from "@/lib/config";
+import { NextResponse } from "next/server";
+import { getRegionFromCookies } from "@/lib/auth";
 import { getItemList } from "@/lib/sheets";
 
-export async function GET(req: NextRequest) {
-  const tab = req.nextUrl.searchParams.get("tab");
-  if (!isValidTabType(tab)) {
-    return NextResponse.json({ error: "tab 파라미터 필요 (일반 또는 취사)" }, { status: 400 });
+export async function GET() {
+  const region = await getRegionFromCookies();
+  if (!region) {
+    return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   }
   try {
-    const items = await getItemList(tab);
+    const items = await getItemList(region);
     return NextResponse.json({ items });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "오류";

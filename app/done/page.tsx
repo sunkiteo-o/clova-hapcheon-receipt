@@ -1,7 +1,7 @@
 "use client";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
-import { TabType } from "@/lib/config";
+import { Category } from "@/lib/config";
 
 const JANGBU_URL = process.env.NEXT_PUBLIC_JANGBU_URL;
 const JEUNGBING_URL = process.env.NEXT_PUBLIC_JEUNGBING_URL;
@@ -11,7 +11,7 @@ function DoneContent() {
   const router = useRouter();
 
   const no = params.get("no");
-  const tab = params.get("tab") as TabType | null;
+  const tab = params.get("tab") as Category | null;
   const 항목Raw = params.get("항목") ?? "";
   const 금액 = params.get("금액") ?? "0";
   const 지출일자 = params.get("지출일자") ?? "";

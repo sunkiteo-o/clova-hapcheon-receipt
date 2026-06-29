@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidTabType } from "@/lib/config";
+import { isValidCategory } from "@/lib/config";
 import { saveRecord } from "@/lib/sheets";
+import { getRegionFromCookies } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
+  const region = await getRegionFromCookies();
+  if (!region) {
+    return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+  }
+
   const body = await req.json();
   const { tab, 지출일자, 항목, 금액, 비고, imageUrl } = body ?? {};
 
-  if (!isValidTabType(tab)) {
+  if (!isValidCategory(tab)) {
     return NextResponse.json({ error: "tab 필드 필요 (일반 또는 취사)" }, { status: 400 });
   }
   if (!지출일자 || !금액) {
@@ -26,6 +32,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await saveRecord(
+      region,
       tab,
       { 지출일자, 항목, 금액: 금액Num, 비고: 비고 ?? "" },
       imageUrl as string | undefined,
