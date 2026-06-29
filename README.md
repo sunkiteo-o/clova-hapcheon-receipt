@@ -17,30 +17,3 @@
 pnpm install
 pnpm dev
 ```
-
-## 환경 변수 (`.env.local`)
-
-```env
-# Google Sheets
-GOOGLE_SERVICE_ACCOUNT_EMAIL=
-GOOGLE_PRIVATE_KEY=
-SHEET_ID_JANGBU=
-SHEET_ID_JEUNGBING=
-
-# 시트 바로가기 링크
-NEXT_PUBLIC_JANGBU_URL=
-NEXT_PUBLIC_JEUNGBING_URL=
-
-# 로그인
-APP_PASSWORD=
-
-# Vercel Blob
-BLOB_READ_WRITE_TOKEN=
-```
-
-## 시트 연결 테스트
-
-```bash
-pnpm test:sheet          # 장부 더미 행 추가
-pnpm tsx scripts/test-blob-image.ts  # Blob 업로드 + 이미지 수식 삽입
-```
