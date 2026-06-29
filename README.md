@@ -3,6 +3,9 @@
 서울 중앙 교회 그루터기 2026 하기봉사 회계 관리 웹앱.  
 영수증을 촬영하면 Vercel Blob에 저장하고, 장부·증빙 Google Sheets에 자동 기록합니다.
 
+  <img width="300" alt="IMG_9408" src="https://github.com/user-attachments/assets/71c07a56-b0b6-43f0-9073-b00ba5509d4c" />
+
+
 ## 흐름
 
 구분 선택 → 영수증 촬영 → 내용 입력 → 저장  
