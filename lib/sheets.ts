@@ -50,6 +50,7 @@ export interface RecordData {
 export async function saveRecord(
   tabType: TabType,
   data: RecordData,
+  imageUrl?: string,
 ): Promise<{ no: number }> {
   const token = await getToken();
 
@@ -104,7 +105,7 @@ export async function saveRecord(
 
   // ── 3. 증빙 기록 ──
   try {
-    await writeJeungbing(token, jeungbingId, jeungbingTab, no, data);
+    await writeJeungbing(token, jeungbingId, jeungbingTab, no, data, imageUrl);
   } catch (e) {
     // 장부는 성공, 증빙만 실패 — 부분 실패 메시지 포함해 throw
     throw new Error(
@@ -125,6 +126,7 @@ async function writeJeungbing(
   tabName: string,
   no: number,
   data: RecordData,
+  imageUrl?: string,
 ) {
   const meta = await sheetsGetMeta(token, spreadsheetId, tabName);
   const numericSheetId = meta.sheetId;
@@ -132,13 +134,13 @@ async function writeJeungbing(
   // 블록 위치 계산
   const blockIndex = (no - 1) % 5;
   const blockGroup = Math.floor((no - 1) / 5);
-  const rowStart = 1 + blockGroup * 2; // 0-indexed, row 0 = 제목란(skip)
+  const rowStart = 1 + blockGroup * 3; // 0-indexed, row 0 = 제목란(skip), 블록당 3행
   const colBunho = blockIndex * 3;
   const colData1 = blockIndex * 3 + 1;
   const colData2 = blockIndex * 3 + 2;
 
   // ── 행/열 부족 시 자동 확장 ──
-  const requiredRows = rowStart + 2;
+  const requiredRows = rowStart + 3;
   const requiredCols = colData2 + 1;
   const expandRequests: unknown[] = [];
   if (requiredRows > meta.rowCount)
@@ -150,14 +152,17 @@ async function writeJeungbing(
 
   // ── 원하는 병합 범위 정의 ──
   // 블록 구조 (스프레드시트 기준, rowStart=0-indexed):
-  //   rowStart+0: [A=번호↕] B=항목  C=금액
-  //   rowStart+1: [A=번호↕] B:C merged = 비고
+  //   rowStart+0: [A=번호↕2] B=항목  C=금액
+  //   rowStart+1: [A=번호↕2] B:C merged = 비고
+  //   rowStart+2: A:C merged = 이미지 (=IMAGE() 수식)
   type GRange = { startRowIndex: number; endRowIndex: number; startColumnIndex: number; endColumnIndex: number };
   const desired: GRange[] = [
-    // 번호 세로 병합: A rowStart:rowStart+1
+    // 번호 세로 병합: A rowStart ~ rowStart+1 (endRowIndex exclusive → rowStart+2)
     { startRowIndex: rowStart, endRowIndex: rowStart + 2, startColumnIndex: colBunho, endColumnIndex: colBunho + 1 },
     // 비고 가로 병합: B:C rowStart+1
     { startRowIndex: rowStart + 1, endRowIndex: rowStart + 2, startColumnIndex: colData1, endColumnIndex: colData2 + 1 },
+    // 이미지 가로 병합: A:C rowStart+2
+    { startRowIndex: rowStart + 2, endRowIndex: rowStart + 3, startColumnIndex: colBunho, endColumnIndex: colData2 + 1 },
   ];
 
   const overlaps = (a: GRange, b: GRange) =>
@@ -180,19 +185,41 @@ async function writeJeungbing(
   }
 
   // ── 셀 값 기록 ──
+  const imageFormula = imageUrl ? `=IMAGE("${imageUrl}", 1)` : "";
   await sheetsBatchUpdateValues(token, spreadsheetId, [
     { range: a1(tabName, rowStart,     colBunho), values: [[no]] },
     { range: a1(tabName, rowStart,     colData1), values: [[data.항목 || "취사비"]] },
     { range: a1(tabName, rowStart,     colData2), values: [[data.금액]] },
     { range: a1(tabName, rowStart + 1, colData1), values: [[data.비고 || ""]] },
+    { range: a1(tabName, rowStart + 2, colBunho), values: [[imageFormula]] },
   ]);
 
-  // ── 병합 적용 (이미 정확히 병합된 범위는 skip) ──
+  // ── 병합 적용 + 이미지 셀 중앙 정렬 ──
   const needsMerge = desired.filter(d => !existing.some(e => equal(e, d)));
-  if (needsMerge.length > 0) {
-    await sheetsBatchUpdateRequests(token, spreadsheetId,
-      needsMerge.map(r => mergeCells(numericSheetId, r.startRowIndex, r.endRowIndex, r.startColumnIndex, r.endColumnIndex))
-    );
+  const formatRequests: unknown[] = needsMerge.map(r =>
+    mergeCells(numericSheetId, r.startRowIndex, r.endRowIndex, r.startColumnIndex, r.endColumnIndex)
+  );
+  // 이미지 행(rowStart+2) 가로/세로 중앙 정렬
+  formatRequests.push({
+    repeatCell: {
+      range: {
+        sheetId: numericSheetId,
+        startRowIndex: rowStart + 2,
+        endRowIndex: rowStart + 3,
+        startColumnIndex: colBunho,
+        endColumnIndex: colData2 + 1,
+      },
+      cell: {
+        userEnteredFormat: {
+          horizontalAlignment: "CENTER",
+          verticalAlignment: "MIDDLE",
+        },
+      },
+      fields: "userEnteredFormat(horizontalAlignment,verticalAlignment)",
+    },
+  });
+  if (formatRequests.length > 0) {
+    await sheetsBatchUpdateRequests(token, spreadsheetId, formatRequests);
   }
 }
 
