@@ -8,7 +8,7 @@
 [일반/ 취사] 구분 선택 → 영수증 촬영 → 내용 입력 → 저장 → 장부 시트(지출 기록), 증빙 시트(이미지 수식) 동시 저장 완료
 
 <p align="center">
-  <img width="600" alt="image" src="https://github.com/user-attachments/assets/f2c47cec-bfd1-4765-95a5-21741ba82718" />
+  <img width="500" alt="image" src="https://github.com/user-attachments/assets/f2c47cec-bfd1-4765-95a5-21741ba82718" />
 </p>
 ## 기술 스택
 
