@@ -4,7 +4,7 @@
 영수증을 촬영하면 연결된 하기봉사 장부·증빙 Google Sheets에 자동 기록합니다.  
 영수증 이미지는 Vercel Blob에 저장하며 관리합니다. 
 
-  <img width="300" alt="IMG_9408" src="https://github.com/user-attachments/assets/71c07a56-b0b6-43f0-9073-b00ba5509d4c" />
+<img width="600"  alt="image" src="https://github.com/user-attachments/assets/f6c65e51-db5f-487c-accb-882c7951954c" />
 
 
 ## User Flow
