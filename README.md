@@ -3,7 +3,7 @@
 서울중앙교회 그루터기 2026 하기봉사 하동/합천/영동 지역 회계 관리 웹앱입니다.  
 영수증을 촬영하면 연결된 하기봉사 장부·증빙 Google Sheets에 자동 기록합니다.  
 
-<img width="800"  alt="image" src="https://github.com/user-attachments/assets/f6c65e51-db5f-487c-accb-882c7951954c" />
+<img width="600"  alt="image" src="https://github.com/user-attachments/assets/f6c65e51-db5f-487c-accb-882c7951954c" />
 
 ## 기술 스택
 
